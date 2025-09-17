@@ -1,0 +1,32 @@
+Comandos para crear un proyecto con NEST:
+
+-npm i -g @nestjs/cli
+-nest new backend
+
+Ya con eso estaría todo, si es necesario actualizar algo, usar el siguiente comando:
+
+-pnpm install
+
+Ahora, para configurar el proyecto para la BD, usar los siguientes comandos (crear y configurar un archivo .env tambien):
+
+-pnpm add @nestjs/typeorm typeorm pg
+
+-pnpm add -D @types/pg
+
+Para poder habilitar la opcion de probar la API con swagger, se deben usar los siguientes comandos:
+
+-pnpm add @nestjs/swagger swagger-ui-express
+
+-pnpm add class-validator class-transformer
+
+E ingresar a swagger con:
+
+-http://localhost:3000/api/docs
+
+Para levantar el servidor del backend, usar este comando:
+
+-pnpm run start:dev
+
+Y para levantar el servidor del frontend, usar el siguiente comando (cambiar el puerto):
+
+-pnpm dev --port 3002

@@ -1,3 +1,7 @@
+Comandos para instalar dependencias en el front:
+
+-pnpm install
+
 Comandos para crear un proyecto con NEST:
 
 -npm i -g @nestjs/cli

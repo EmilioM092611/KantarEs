@@ -111,8 +111,7 @@ export default function UsuariosPage() {
             <CardContent className="space-y-6">
               <div className="flex items-center space-x-6">
                 <Avatar className="w-24 h-24">
-                  <AvatarImage src="/restaurant-manager-avatar.png" />
-                  <AvatarFallback className="bg-red-100 text-red-600 text-2xl font-semibold">JP</AvatarFallback>
+                  <AvatarFallback className="bg-red-100 text-red-600 text-2xl font-semibold">RD</AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">

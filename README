@@ -34,3 +34,8 @@ Para levantar el servidor del backend, usar este comando:
 Y para levantar el servidor del frontend, usar el siguiente comando (cambiar el puerto):
 
 -pnpm dev --port 3002
+
+Implementar Electron (configurar el package.json con las nuevas dependencias):
+
+-pnpm add -D electron @types/electron concurrently wait-on
+-pnpm electron-dev

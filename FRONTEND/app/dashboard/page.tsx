@@ -71,49 +71,7 @@ const metricsData = [
 ]
 
 const modulesSections = [
-  {
-    title: "Inventario",
-    modules: [
-      {
-        title: "Compras",
-        description: "Gestión de compras",
-        icon: ShoppingBag,
-        color: "from-teal-500 to-green-500",
-        category: "Inventario",
-        href: "/inventario",
-      },
-      {
-        title: "Inventario",
-        description: "Control de inventario",
-        icon: Package,
-        color: "from-blue-500 to-blue-600",
-        category: "Inventario",
-        href: "/inventario",
-      },
-    ],
-  },
-  {
-    title: "Finanzas",
-    modules: [
-      {
-        title: "Cortes de caja",
-        description: "Gestión financiera",
-        icon: DollarSign,
-        color: "from-green-500 to-green-600",
-        category: "Finanzas",
-        href: "/finanzas/cortes",
-      },
-      {
-        title: "Estadísticas",
-        description: "Control de efectivo",
-        icon: BarChart3,
-        color: "from-orange-500 to-yellow-500",
-        category: "Finanzas",
-        href: "/finanzas/analisis",
-      },
-    ],
-  },
-  {
+    {
     title: "Servicio",
     modules: [
       {
@@ -164,6 +122,48 @@ const modulesSections = [
     ],
   },
   {
+    title: "Inventario",
+    modules: [
+      {
+        title: "Compras",
+        description: "Gestión de compras",
+        icon: ShoppingBag,
+        color: "from-teal-500 to-green-500",
+        category: "Inventario",
+        href: "/inventario",
+      },
+      {
+        title: "Inventario",
+        description: "Control de inventario",
+        icon: Package,
+        color: "from-blue-500 to-blue-600",
+        category: "Inventario",
+        href: "/inventario",
+      },
+    ],
+  },
+  {
+    title: "Finanzas",
+    modules: [
+      {
+        title: "Cortes de caja",
+        description: "Gestión financiera",
+        icon: DollarSign,
+        color: "from-green-500 to-green-600",
+        category: "Finanzas",
+        href: "/finanzas/cortes",
+      },
+      {
+        title: "Estadísticas",
+        description: "Control de efectivo",
+        icon: BarChart3,
+        color: "from-orange-500 to-yellow-500",
+        category: "Finanzas",
+        href: "/finanzas/analisis",
+      },
+    ],
+  },
+  {
     title: "Configuración",
     modules: [
       {
@@ -193,7 +193,7 @@ const modulesSections = [
     ],
   },
   {
-    title: "Administración",
+    title: "Administración de personal",
     modules: [
       {
         title: "Usuarios",

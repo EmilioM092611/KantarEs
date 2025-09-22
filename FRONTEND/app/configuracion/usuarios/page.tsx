@@ -79,8 +79,8 @@ export default function UsuariosPage() {
   const [statusFilter, setStatusFilter] = useState("all")
 
   const [profileData, setProfileData] = useState({
-    name: "Rodo",
-    email: "Rodo@kantares.com",
+    name: "KantarEs",
+    email: "ejemplo@kantares.com",
     phone: "+52 55 1234 5678",
     address: "Av. Revolución 123, Col. Centro, CDMX",
     role: "Administrador",
@@ -301,7 +301,7 @@ export default function UsuariosPage() {
       <FadeIn>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-neutral-900 via-black to-neutral-900 bg-clip-text text-transparent">
               Gestión de Usuarios
             </h1>
             <p className="text-gray-600 mt-2 text-lg">Administra perfiles y permisos de usuarios del sistema</p>
@@ -552,8 +552,7 @@ export default function UsuariosPage() {
                 <CardContent className="space-y-6">
                   <div className="flex items-center space-x-6">
                     <Avatar className="w-24 h-24">
-                      <AvatarImage src="/restaurant-manager-avatar.png" />
-                      <AvatarFallback className="bg-red-100 text-red-600 text-2xl font-semibold">JP</AvatarFallback>
+                      <AvatarFallback className="bg-red-100 text-red-600 text-2xl font-semibold">KE</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">

@@ -7,6 +7,8 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev",
+    "productName": "KantarEs Sistema",
+    "appId": "com.kantares.app",
     "lint": "next lint",
     "start": "next start",
     "electron": "electron .",

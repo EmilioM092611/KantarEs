@@ -139,7 +139,7 @@ export default function LoginPage() {
       {/* Left side content */}
       <div className="absolute left-0 top-0 w-full lg:w-2/3 h-full flex items-center justify-center p-8 lg:p-16">
         <div className="text-center text-white max-w-md animate-slide-in-left animate-content-breathe">
-          <FadeIn delay={0.2}>
+          <FadeIn delay={0.4}>
             <div className="mb-8">
               <div className="w-32 h-32 mx-auto mb-6 relative">
                 <img 

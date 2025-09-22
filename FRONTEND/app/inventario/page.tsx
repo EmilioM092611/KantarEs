@@ -421,9 +421,10 @@ export default function InventoryPage() {
       <FadeIn>
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent">
-              Control de Inventario
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-neutral-900 via-black to-neutral-900 bg-clip-text text-transparent">
+              Control de inventario
             </h1>
+
             <p className="text-gray-600 mt-2 text-lg">Gestión completa de stock, proveedores y compras</p>
           </div>
 

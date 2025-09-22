@@ -39,9 +39,9 @@ function createWindow() {
         mainWindow.show();
 
         // Abrir DevTools solo en desarrollo
-        if (isDev) {
+        /*if (isDev) {
             mainWindow.webContents.openDevTools();
-        }
+        }*/
     });
 
     // Manejar el cierre de ventana

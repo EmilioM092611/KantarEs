@@ -23,7 +23,9 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       <Sidebar />
-      <main className={`transition-all duration-300 ${collapsed ? "ml-16" : "ml-72"}`}>{children}</main>
+      <main className={`transition-all duration-300 ${collapsed ? "ml-20" : "ml-72"} p-6`}>
+        <div className="w-full">{children}</div>
+      </main>
     </div>
   )
 }

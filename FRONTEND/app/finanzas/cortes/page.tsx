@@ -1,5 +1,7 @@
 "use client"
 
+import React from "react"
+
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { FadeIn } from "@/components/fade-in"
+import { SlideIn } from "@/components/slide-in"
 import {
   DollarSign,
   CreditCard,
@@ -161,203 +165,229 @@ export default function CortesPage() {
     <div className="w-full min-h-screen">
       <div className="p-4 md:p-6 lg:p-8 space-y-6 lg:space-y-8 max-w-full">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Cortes de Caja</h1>
-            <p className="text-gray-600 mt-1">Gestión y control de movimientos de efectivo</p>
-          </div>
+        <FadeIn>
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Cortes de Caja</h1>
+              <p className="text-gray-600 mt-1">Gestión y control de movimientos de efectivo</p>
+            </div>
 
-          <div className="flex items-center gap-4">
-            <Button variant="outline" className="gap-2 bg-transparent">
-              <Download className="h-4 w-4" />
-              Exportar
-            </Button>
-            <Button onClick={() => setModalCorte(true)} className="gradient-wine text-white gap-2">
-              <Calculator className="h-4 w-4" />
-              Cerrar Corte
-            </Button>
+            <div className="flex items-center gap-4">
+              <Button variant="outline" className="gap-2 bg-transparent transition-smooth hover:scale-105">
+                <Download className="h-4 w-4" />
+                Exportar
+              </Button>
+              <Button
+                onClick={() => setModalCorte(true)}
+                className="gradient-wine text-white gap-2 transition-smooth hover:scale-105"
+              >
+                <Calculator className="h-4 w-4" />
+                Cerrar Corte
+              </Button>
+            </div>
           </div>
-        </div>
+        </FadeIn>
 
         {/* Corte Actual */}
-        <Card className="bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg border-0 w-full">
-          <CardContent className="p-6 lg:p-8">
-            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Corte de Caja Actual</h2>
-                <div className="flex items-center gap-4 opacity-90">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span>Iniciado: {corteActual.horaInicio} AM</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    <span>Usuario: {corteActual.usuario}</span>
+        <SlideIn direction="up" delay={0.1}>
+          <Card className="bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg border-0 w-full transition-smooth hover:shadow-xl">
+            <CardContent className="p-6 lg:p-8">
+              <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold mb-2">Corte de Caja Actual</h2>
+                  <div className="flex items-center gap-4 opacity-90">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      <span>Iniciado: {corteActual.horaInicio} AM</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      <span>Usuario: {corteActual.usuario}</span>
+                    </div>
                   </div>
                 </div>
+                <div className="text-right">
+                  <p className="text-sm opacity-90">Fondo Inicial</p>
+                  <p className="text-3xl font-bold">${corteActual.fondoInicial.toLocaleString()}</p>
+                  <Badge className="mt-2 bg-white/20 text-white hover:bg-white/30">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Activo
+                  </Badge>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm opacity-90">Fondo Inicial</p>
-                <p className="text-3xl font-bold">${corteActual.fondoInicial.toLocaleString()}</p>
-                <Badge className="mt-2 bg-white/20 text-white hover:bg-white/30">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Activo
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </SlideIn>
 
         {/* Resumen de Totales */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          <Card className="bg-green-50 shadow-lg border-green-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-700 text-sm font-medium">Efectivo</p>
-                  <p className="text-2xl font-bold text-green-900">${totales.efectivo.toLocaleString()}</p>
-                  <p className="text-xs text-green-600 mt-1">
-                    {transacciones.filter((t) => t.metodo === "efectivo").length} transacciones
-                  </p>
-                </div>
-                <DollarSign className="h-8 w-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-blue-50 shadow-lg border-blue-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-700 text-sm font-medium">Tarjeta</p>
-                  <p className="text-2xl font-bold text-blue-900">${totales.tarjeta.toLocaleString()}</p>
-                  <p className="text-xs text-blue-600 mt-1">
-                    {transacciones.filter((t) => t.metodo === "tarjeta").length} transacciones
-                  </p>
-                </div>
-                <CreditCard className="h-8 w-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-purple-50 shadow-lg border-purple-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-purple-700 text-sm font-medium">Transferencia</p>
-                  <p className="text-2xl font-bold text-purple-900">${totales.transferencia.toLocaleString()}</p>
-                  <p className="text-xs text-purple-600 mt-1">
-                    {transacciones.filter((t) => t.metodo === "transferencia").length} transacciones
-                  </p>
-                </div>
-                <Smartphone className="h-8 w-8 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-orange-50 shadow-lg border-orange-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-orange-700 text-sm font-medium">Gastos</p>
-                  <p className="text-2xl font-bold text-orange-900">${totales.gastos.toLocaleString()}</p>
-                  <p className="text-xs text-orange-600 mt-1">
-                    {transacciones.filter((t) => t.tipo === "gasto").length} movimientos
-                  </p>
-                </div>
-                <Minus className="h-8 w-8 text-orange-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-gray-50 to-gray-100 shadow-lg border-gray-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-700 text-sm font-medium">Total en Caja</p>
-                  <p className="text-2xl font-bold text-gray-900">${totales.total.toLocaleString()}</p>
-                  <p className="text-xs text-gray-600 mt-1">{totales.transacciones} movimientos</p>
-                </div>
-                <Calculator className="h-8 w-8 text-gray-600" />
-              </div>
-            </CardContent>
-          </Card>
+          {[
+            {
+              title: "Efectivo",
+              value: totales.efectivo,
+              count: transacciones.filter((t) => t.metodo === "efectivo").length,
+              icon: DollarSign,
+              bgColor: "bg-green-50",
+              borderColor: "border-green-200",
+              textColor: "text-green-700",
+              valueColor: "text-green-900",
+              iconColor: "text-green-600",
+              countColor: "text-green-600",
+            },
+            {
+              title: "Tarjeta",
+              value: totales.tarjeta,
+              count: transacciones.filter((t) => t.metodo === "tarjeta").length,
+              icon: CreditCard,
+              bgColor: "bg-blue-50",
+              borderColor: "border-blue-200",
+              textColor: "text-blue-700",
+              valueColor: "text-blue-900",
+              iconColor: "text-blue-600",
+              countColor: "text-blue-600",
+            },
+            {
+              title: "Transferencia",
+              value: totales.transferencia,
+              count: transacciones.filter((t) => t.metodo === "transferencia").length,
+              icon: Smartphone,
+              bgColor: "bg-purple-50",
+              borderColor: "border-purple-200",
+              textColor: "text-purple-700",
+              valueColor: "text-purple-900",
+              iconColor: "text-purple-600",
+              countColor: "text-purple-600",
+            },
+            {
+              title: "Gastos",
+              value: totales.gastos,
+              count: transacciones.filter((t) => t.tipo === "gasto").length,
+              icon: Minus,
+              bgColor: "bg-orange-50",
+              borderColor: "border-orange-200",
+              textColor: "text-orange-700",
+              valueColor: "text-orange-900",
+              iconColor: "text-orange-600",
+              countColor: "text-orange-600",
+            },
+            {
+              title: "Total en Caja",
+              value: totales.total,
+              count: totales.transacciones,
+              icon: Calculator,
+              bgColor: "bg-gradient-to-br from-gray-50 to-gray-100",
+              borderColor: "border-gray-200",
+              textColor: "text-gray-700",
+              valueColor: "text-gray-900",
+              iconColor: "text-gray-600",
+              countColor: "text-gray-600",
+            },
+          ].map((stat, index) => (
+            <SlideIn key={index} direction="up" delay={0.2 + index * 0.1}>
+              <Card
+                className={`${stat.bgColor} shadow-lg ${stat.borderColor} transition-smooth hover:shadow-xl hover:scale-105`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`${stat.textColor} text-sm font-medium`}>{stat.title}</p>
+                      <p className={`text-2xl font-bold ${stat.valueColor}`}>${stat.value.toLocaleString()}</p>
+                      <p className={`text-xs ${stat.countColor} mt-1`}>
+                        {stat.count}{" "}
+                        {stat.title === "Total en Caja"
+                          ? "movimientos"
+                          : stat.title === "Gastos"
+                            ? "movimientos"
+                            : "transacciones"}
+                      </p>
+                    </div>
+                    {React.createElement(stat.icon, { className: `h-8 w-8 ${stat.iconColor}` })}
+                  </div>
+                </CardContent>
+              </Card>
+            </SlideIn>
+          ))}
         </div>
 
         {/* Tabla de Transacciones */}
-        <Card className="bg-white shadow-lg border-0 w-full">
-          <CardHeader className="pb-4">
-            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
-              <CardTitle className="text-lg font-semibold text-gray-900">Movimientos del Día</CardTitle>
-              <div className="flex gap-2">
-                {[
-                  { key: "todos", label: "Todos" },
-                  { key: "venta", label: "Ventas" },
-                  { key: "gasto", label: "Gastos" },
-                ].map((filtro) => (
-                  <Button
-                    key={filtro.key}
-                    variant={filtroTipo === filtro.key ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFiltroTipo(filtro.key)}
-                    className={filtroTipo === filtro.key ? "gradient-wine text-white" : ""}
-                  >
-                    {filtro.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto w-full">
-              <Table className="min-w-full">
-                <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead>Hora</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Descripción</TableHead>
-                    <TableHead>Método</TableHead>
-                    <TableHead>Usuario</TableHead>
-                    <TableHead className="text-right">Monto</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transaccionesFiltradas.map((transaccion, index) => (
-                    <TableRow
-                      key={transaccion.id}
-                      className={`hover:bg-gray-50 ${index % 2 === 0 ? "bg-white" : "bg-gray-25"}`}
+        <SlideIn direction="up" delay={0.7}>
+          <Card className="bg-white shadow-lg border-0 w-full transition-smooth hover:shadow-xl">
+            <CardHeader className="pb-4">
+              <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+                <CardTitle className="text-lg font-semibold text-gray-900">Movimientos del Día</CardTitle>
+                <div className="flex gap-2">
+                  {[
+                    { key: "todos", label: "Todos" },
+                    { key: "venta", label: "Ventas" },
+                    { key: "gasto", label: "Gastos" },
+                  ].map((filtro) => (
+                    <Button
+                      key={filtro.key}
+                      variant={filtroTipo === filtro.key ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setFiltroTipo(filtro.key)}
+                      className={`transition-smooth hover:scale-105 ${filtroTipo === filtro.key ? "gradient-wine text-white" : ""}`}
                     >
-                      <TableCell className="font-mono text-sm">{transaccion.hora}</TableCell>
-                      <TableCell>
-                        <Badge className={getTipoColor(transaccion.tipo)}>
-                          {transaccion.tipo.charAt(0).toUpperCase() + transaccion.tipo.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium text-gray-900">{transaccion.descripcion}</p>
-                          {transaccion.mesa && <p className="text-sm text-gray-500">Mesa {transaccion.mesa}</p>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getMetodoIcon(transaccion.metodo)}
-                          <span className="capitalize">{transaccion.metodo}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-600">{transaccion.usuario}</TableCell>
-                      <TableCell className="text-right">
-                        <span className={`font-semibold ${transaccion.monto > 0 ? "text-green-600" : "text-red-600"}`}>
-                          {transaccion.monto > 0 ? "+" : ""}${Math.abs(transaccion.monto).toLocaleString()}
-                        </span>
-                      </TableCell>
-                    </TableRow>
+                      {filtro.label}
+                    </Button>
                   ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto w-full">
+                <Table className="min-w-full">
+                  <TableHeader>
+                    <TableRow className="bg-gray-50">
+                      <TableHead>Hora</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Descripción</TableHead>
+                      <TableHead>Método</TableHead>
+                      <TableHead>Usuario</TableHead>
+                      <TableHead className="text-right">Monto</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {transaccionesFiltradas.map((transaccion, index) => (
+                      <TableRow
+                        key={transaccion.id}
+                        className={`hover:bg-gray-50 transition-smooth animate-fade-in ${index % 2 === 0 ? "bg-white" : "bg-gray-25"}`}
+                        style={{ animationDelay: `${0.8 + index * 0.05}s` }}
+                      >
+                        <TableCell className="font-mono text-sm">{transaccion.hora}</TableCell>
+                        <TableCell>
+                          <Badge className={getTipoColor(transaccion.tipo)}>
+                            {transaccion.tipo.charAt(0).toUpperCase() + transaccion.tipo.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-gray-900">{transaccion.descripcion}</p>
+                            {transaccion.mesa && <p className="text-sm text-gray-500">Mesa {transaccion.mesa}</p>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {getMetodoIcon(transaccion.metodo)}
+                            <span className="capitalize">{transaccion.metodo}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">{transaccion.usuario}</TableCell>
+                        <TableCell className="text-right">
+                          <span
+                            className={`font-semibold ${transaccion.monto > 0 ? "text-green-600" : "text-red-600"}`}
+                          >
+                            {transaccion.monto > 0 ? "+" : ""}${Math.abs(transaccion.monto).toLocaleString()}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </SlideIn>
 
         {/* Modal de Cierre de Corte */}
         <Dialog open={modalCorte} onOpenChange={setModalCorte}>
@@ -419,10 +449,14 @@ export default function CortesPage() {
               </div>
 
               <div className="flex gap-3 pt-4 border-t">
-                <Button variant="outline" onClick={() => setModalCorte(false)} className="flex-1">
+                <Button
+                  variant="outline"
+                  onClick={() => setModalCorte(false)}
+                  className="flex-1 transition-smooth hover:scale-105"
+                >
                   Cancelar
                 </Button>
-                <Button className="gradient-wine text-white flex-1 gap-2">
+                <Button className="gradient-wine text-white flex-1 gap-2 transition-smooth hover:scale-105">
                   <Printer className="h-4 w-4" />
                   Cerrar e Imprimir
                 </Button>

@@ -1,9 +1,9 @@
 "use client"
 
 import type React from "react"
-
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter, usePathname } from "next/navigation"
+import { PageLoader } from "./page-loader"
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -15,43 +15,36 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter()
   const pathname = usePathname()
 
-  useEffect(() => {
-    const checkAuth = () => {
-      const auth = localStorage.getItem("kantares_auth")
-      const isLoginPage = pathname === "/"
+  const checkAuth = useCallback(() => {
+    const auth = localStorage.getItem("kantares_auth")
+    const isLoginPage = pathname === "/"
 
-      console.log("[v0] Auth check:", { auth, isLoginPage, pathname })
-
-      if (!auth && !isLoginPage) {
-        // Not authenticated and not on login page - redirect to login
-        console.log("[v0] Redirecting to login - not authenticated")
-        router.replace("/")
-        setIsAuthenticated(false)
-        setIsLoading(false)
-        return
-      }
-
-      if (auth && isLoginPage) {
-        // Authenticated but on login page - redirect to dashboard
-        console.log("[v0] Redirecting to dashboard - already authenticated")
-        router.replace("/dashboard")
-        setIsAuthenticated(true)
-        setIsLoading(false)
-        return
-      }
-
-      // Set authentication state and stop loading
-      setIsAuthenticated(!!auth)
+    if (!auth && !isLoginPage) {
+      // Not authenticated and not on login page - redirect to login
+      router.replace("/")
+      setIsAuthenticated(false)
       setIsLoading(false)
-      console.log("[v0] Auth state set:", !!auth)
+      return
     }
 
-    // Small delay to ensure localStorage is available
-    const timer = setTimeout(checkAuth, 100)
+    if (auth && isLoginPage) {
+      // Authenticated but on login page - redirect to dashboard
+      router.replace("/dashboard")
+      setIsAuthenticated(true)
+      setIsLoading(false)
+      return
+    }
+
+    // Set authentication state and stop loading
+    setIsAuthenticated(!!auth)
+    setIsLoading(false)
+  }, [router, pathname])
+
+  useEffect(() => {
+    const timer = setTimeout(checkAuth, 50)
 
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "kantares_auth") {
-        console.log("[v0] Storage change detected:", e.newValue)
         if (!e.newValue) {
           // Auth was removed, redirect to login
           setIsAuthenticated(false)
@@ -66,24 +59,22 @@ export function AuthGuard({ children }: AuthGuardProps) {
       }
     }
 
+    const handleAuthChange = () => {
+      checkAuth()
+    }
+
     window.addEventListener("storage", handleStorageChange)
+    window.addEventListener("kantares-auth-change", handleAuthChange)
 
     return () => {
       clearTimeout(timer)
       window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener("kantares-auth-change", handleAuthChange)
     }
-  }, [router, pathname])
+  }, [checkAuth])
 
-  // Show loading while checking authentication
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 via-red-100 to-red-600">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-red-600 border-t-transparent"></div>
-          <p className="text-red-700 font-medium">Cargando...</p>
-        </div>
-      </div>
-    )
+    return <PageLoader text="Cargando KANTARES..." />
   }
 
   return <>{children}</>

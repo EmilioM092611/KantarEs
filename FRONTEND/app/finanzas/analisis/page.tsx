@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { FadeIn } from "@/components/fade-in"
+import { SlideIn } from "@/components/slide-in"
 import {
   AreaChart,
   Area,
@@ -34,6 +36,7 @@ import {
 } from "lucide-react"
 import { format, subDays } from "date-fns"
 import { es } from "date-fns/locale"
+import React from "react"
 
 // Datos de ejemplo para los gráficos
 const ventasPorHora = [
@@ -131,353 +134,373 @@ export default function AnalisisPage() {
     <div className="w-full min-h-screen">
       <div className="p-4 md:p-6 lg:p-8 space-y-6 lg:space-y-8 max-w-full">
         {/* Header con filtros */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Estadísticas Financieras</h1>
-            <p className="text-gray-600 mt-1">Dashboard de métricas y tendencias de ventas</p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {/* Períodos rápidos */}
-            <div className="flex gap-2">
-              {[
-                { key: "1d", label: "Hoy" },
-                { key: "7d", label: "7 días" },
-                { key: "30d", label: "30 días" },
-                { key: "90d", label: "90 días" },
-              ].map((p) => (
-                <Button
-                  key={p.key}
-                  variant={periodo === p.key ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => aplicarPeriodo(p.key)}
-                  className={periodo === p.key ? "gradient-wine text-white" : ""}
-                >
-                  {p.label}
-                </Button>
-              ))}
+        <FadeIn>
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Estadísticas Financieras</h1>
+              <p className="text-gray-600 mt-1">Dashboard de métricas y tendencias de ventas</p>
             </div>
 
-            {/* Selector de fechas */}
-            <div className="flex gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="gap-2 bg-transparent">
-                    <CalendarIcon className="h-4 w-4" />
-                    {format(fechaInicio, "dd MMM", { locale: es })} - {format(fechaFin, "dd MMM", { locale: es })}
+            <div className="flex items-center gap-4">
+              {/* Períodos rápidos */}
+              <div className="flex gap-2">
+                {[
+                  { key: "1d", label: "Hoy" },
+                  { key: "7d", label: "7 días" },
+                  { key: "30d", label: "30 días" },
+                  { key: "90d", label: "90 días" },
+                ].map((p) => (
+                  <Button
+                    key={p.key}
+                    variant={periodo === p.key ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => aplicarPeriodo(p.key)}
+                    className={`transition-smooth hover:scale-105 ${periodo === p.key ? "gradient-wine text-white" : ""}`}
+                  >
+                    {p.label}
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar mode="range" selected={{ from: fechaInicio, to: fechaFin }} locale={es} />
-                </PopoverContent>
-              </Popover>
+                ))}
+              </div>
 
-              <Button variant="outline" size="icon">
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+              {/* Selector de fechas */}
+              <div className="flex gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="gap-2 bg-transparent transition-smooth hover:scale-105">
+                      <CalendarIcon className="h-4 w-4" />
+                      {format(fechaInicio, "dd MMM", { locale: es })} - {format(fechaFin, "dd MMM", { locale: es })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar mode="range" selected={{ from: fechaInicio, to: fechaFin }} locale={es} />
+                  </PopoverContent>
+                </Popover>
 
-              <Button variant="outline" className="gap-2 bg-transparent">
-                <Download className="h-4 w-4" />
-                Exportar
-              </Button>
+                <Button variant="outline" size="icon" className="transition-smooth hover:scale-105 bg-transparent">
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+
+                <Button variant="outline" className="gap-2 bg-transparent transition-smooth hover:scale-105">
+                  <Download className="h-4 w-4" />
+                  Exportar
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        </FadeIn>
 
         {/* KPIs Principales */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 shadow-lg border-green-200">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-green-700 font-medium">Ventas Totales</p>
-                  <h2 className="text-4xl font-bold text-green-900 mt-2">
-                    ${estadisticasPrincipales.ventasTotal.toLocaleString()}
-                  </h2>
-                  <div className="flex items-center gap-2 mt-3">
-                    <ArrowUp className="h-4 w-4 text-green-600" />
-                    <span className="text-green-600 text-sm font-medium">{estadisticasPrincipales.cambioVentas}%</span>
-                    <span className="text-gray-500 text-sm">vs período anterior</span>
+          {[
+            {
+              title: "Ventas Totales",
+              value: estadisticasPrincipales.ventasTotal,
+              change: estadisticasPrincipales.cambioVentas,
+              icon: TrendingUp,
+              gradient: "from-green-50 to-green-100",
+              border: "border-green-200",
+              textColor: "text-green-700",
+              valueColor: "text-green-900",
+              iconColor: "text-green-600",
+              isPositive: true,
+            },
+            {
+              title: "Órdenes",
+              value: estadisticasPrincipales.ordenesTotal,
+              change: estadisticasPrincipales.cambioOrdenes,
+              icon: ShoppingCart,
+              gradient: "from-blue-50 to-blue-100",
+              border: "border-blue-200",
+              textColor: "text-blue-700",
+              valueColor: "text-blue-900",
+              iconColor: "text-blue-600",
+              isPositive: false,
+            },
+            {
+              title: "Ticket Promedio",
+              value: estadisticasPrincipales.ticketPromedio,
+              change: estadisticasPrincipales.cambioTicket,
+              icon: DollarSign,
+              gradient: "from-purple-50 to-purple-100",
+              border: "border-purple-200",
+              textColor: "text-purple-700",
+              valueColor: "text-purple-900",
+              iconColor: "text-purple-600",
+              isPositive: true,
+            },
+            {
+              title: "Clientes Únicos",
+              value: estadisticasPrincipales.clientesUnicos,
+              change: estadisticasPrincipales.cambioClientes,
+              icon: Users,
+              gradient: "from-orange-50 to-orange-100",
+              border: "border-orange-200",
+              textColor: "text-orange-700",
+              valueColor: "text-orange-900",
+              iconColor: "text-orange-600",
+              isPositive: true,
+            },
+          ].map((stat, index) => (
+            <SlideIn key={index} direction="up" delay={0.1 + index * 0.1}>
+              <Card
+                className={`bg-gradient-to-br ${stat.gradient} shadow-lg ${stat.border} transition-smooth hover:shadow-xl hover:scale-105`}
+              >
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className={`${stat.textColor} font-medium`}>{stat.title}</p>
+                      <h2 className={`text-4xl font-bold ${stat.valueColor} mt-2`}>
+                        {stat.title.includes("Ticket") || stat.title.includes("Ventas") ? "$" : ""}
+                        {stat.value.toLocaleString()}
+                      </h2>
+                      <div className="flex items-center gap-2 mt-3">
+                        {stat.isPositive ? (
+                          <ArrowUp className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4 text-red-600" />
+                        )}
+                        <span className={`text-sm font-medium ${stat.isPositive ? "text-green-600" : "text-red-600"}`}>
+                          {Math.abs(stat.change)}%
+                        </span>
+                        <span className="text-gray-500 text-sm">vs período anterior</span>
+                      </div>
+                    </div>
+                    <div className="w-16 h-16 bg-white/50 rounded-2xl flex items-center justify-center">
+                      {React.createElement(stat.icon, { className: `w-8 h-8 ${stat.iconColor}` })}
+                    </div>
                   </div>
-                </div>
-                <div className="w-16 h-16 bg-white/50 rounded-2xl flex items-center justify-center">
-                  <TrendingUp className="w-8 h-8 text-green-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 shadow-lg border-blue-200">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-blue-700 font-medium">Órdenes</p>
-                  <h2 className="text-4xl font-bold text-blue-900 mt-2">{estadisticasPrincipales.ordenesTotal}</h2>
-                  <div className="flex items-center gap-2 mt-3">
-                    <ArrowDown className="h-4 w-4 text-red-600" />
-                    <span className="text-red-600 text-sm font-medium">
-                      {Math.abs(estadisticasPrincipales.cambioOrdenes)}%
-                    </span>
-                    <span className="text-gray-500 text-sm">vs período anterior</span>
-                  </div>
-                </div>
-                <div className="w-16 h-16 bg-white/50 rounded-2xl flex items-center justify-center">
-                  <ShoppingCart className="w-8 h-8 text-blue-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 shadow-lg border-purple-200">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-purple-700 font-medium">Ticket Promedio</p>
-                  <h2 className="text-4xl font-bold text-purple-900 mt-2">${estadisticasPrincipales.ticketPromedio}</h2>
-                  <div className="flex items-center gap-2 mt-3">
-                    <ArrowUp className="h-4 w-4 text-green-600" />
-                    <span className="text-green-600 text-sm font-medium">{estadisticasPrincipales.cambioTicket}%</span>
-                    <span className="text-gray-500 text-sm">vs período anterior</span>
-                  </div>
-                </div>
-                <div className="w-16 h-16 bg-white/50 rounded-2xl flex items-center justify-center">
-                  <DollarSign className="w-8 h-8 text-purple-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg border-orange-200">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-orange-700 font-medium">Clientes Únicos</p>
-                  <h2 className="text-4xl font-bold text-orange-900 mt-2">{estadisticasPrincipales.clientesUnicos}</h2>
-                  <div className="flex items-center gap-2 mt-3">
-                    <ArrowUp className="h-4 w-4 text-green-600" />
-                    <span className="text-green-600 text-sm font-medium">
-                      {estadisticasPrincipales.cambioClientes}%
-                    </span>
-                    <span className="text-gray-500 text-sm">vs período anterior</span>
-                  </div>
-                </div>
-                <div className="w-16 h-16 bg-white/50 rounded-2xl flex items-center justify-center">
-                  <Users className="w-8 h-8 text-orange-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </SlideIn>
+          ))}
         </div>
 
         {/* Gráficos principales */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
           {/* Gráfico de ventas por hora */}
-          <Card className="bg-white shadow-lg border-0">
-            <CardHeader className="pb-4">
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-lg font-semibold text-gray-900">Ventas por Hora</CardTitle>
-                <Select defaultValue="hoy">
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hoy">Hoy</SelectItem>
-                    <SelectItem value="ayer">Ayer</SelectItem>
-                    <SelectItem value="semana">Esta Semana</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={ventasPorHora}>
-                  <defs>
-                    <linearGradient id="colorVentas" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#DC2626" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#DC2626" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="hora" />
-                  <YAxis />
-                  <Tooltip
-                    formatter={(value, name) => [
-                      name === "ventas" ? `$${value.toLocaleString()}` : value,
-                      name === "ventas" ? "Ventas" : "Órdenes",
-                    ]}
-                  />
-                  <Area type="monotone" dataKey="ventas" stroke="#DC2626" fillOpacity={1} fill="url(#colorVentas)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+          <SlideIn direction="up" delay={0.5}>
+            <Card className="bg-white shadow-lg border-0 transition-smooth hover:shadow-xl">
+              <CardHeader className="pb-4">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-lg font-semibold text-gray-900">Ventas por Hora</CardTitle>
+                  <Select defaultValue="hoy">
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hoy">Hoy</SelectItem>
+                      <SelectItem value="ayer">Ayer</SelectItem>
+                      <SelectItem value="semana">Esta Semana</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={ventasPorHora}>
+                    <defs>
+                      <linearGradient id="colorVentas" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#DC2626" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#DC2626" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="hora" />
+                    <YAxis />
+                    <Tooltip
+                      formatter={(value, name) => [
+                        name === "ventas" ? `$${value.toLocaleString()}` : value,
+                        name === "ventas" ? "Ventas" : "Órdenes",
+                      ]}
+                    />
+                    <Area type="monotone" dataKey="ventas" stroke="#DC2626" fillOpacity={1} fill="url(#colorVentas)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </SlideIn>
 
           {/* Gráfico de ventas por día */}
-          <Card className="bg-white shadow-lg border-0">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-semibold text-gray-900">Ventas vs Meta Semanal</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={ventasPorDia}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="dia" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
-                  <Bar dataKey="ventas" fill="#DC2626" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="meta" fill="#E5E7EB" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+          <SlideIn direction="up" delay={0.6}>
+            <Card className="bg-white shadow-lg border-0 transition-smooth hover:shadow-xl">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold text-gray-900">Ventas vs Meta Semanal</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={ventasPorDia}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="dia" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+                    <Bar dataKey="ventas" fill="#DC2626" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="meta" fill="#E5E7EB" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </SlideIn>
         </div>
 
         {/* Gráficos secundarios */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
           {/* Productos más vendidos */}
-          <Card className="bg-white shadow-lg border-0">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-semibold text-gray-900">Productos Más Vendidos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {productosMasVendidos.map((producto, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-gradient-to-br from-red-400 to-red-600 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-bold text-sm">{index + 1}</span>
+          <SlideIn direction="up" delay={0.7}>
+            <Card className="bg-white shadow-lg border-0 transition-smooth hover:shadow-xl">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold text-gray-900">Productos Más Vendidos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {productosMasVendidos.map((producto, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between animate-fade-in"
+                      style={{ animationDelay: `${0.8 + index * 0.1}s` }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-red-400 to-red-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">{index + 1}</span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{producto.nombre}</p>
+                          <p className="text-sm text-gray-500">{producto.porcentaje}% del total</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{producto.nombre}</p>
-                        <p className="text-sm text-gray-500">{producto.porcentaje}% del total</p>
-                      </div>
+                      <p className="font-semibold text-gray-900">${producto.ventas.toLocaleString()}</p>
                     </div>
-                    <p className="font-semibold text-gray-900">${producto.ventas.toLocaleString()}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </SlideIn>
 
           {/* Métodos de pago */}
-          <Card className="bg-white shadow-lg border-0">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-semibold text-gray-900">Métodos de Pago</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={metodosPago} cx="50%" cy="50%" innerRadius={40} outerRadius={80} dataKey="valor">
-                    {metodosPago.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => `${value}%`} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="mt-4 space-y-2">
-                {metodosPago.map((metodo, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: metodo.color }}></div>
-                      <span className="text-sm text-gray-600">{metodo.metodo}</span>
+          <SlideIn direction="up" delay={0.8}>
+            <Card className="bg-white shadow-lg border-0 transition-smooth hover:shadow-xl">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold text-gray-900">Métodos de Pago</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie data={metodosPago} cx="50%" cy="50%" innerRadius={40} outerRadius={80} dataKey="valor">
+                      {metodosPago.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => `${value}%`} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-4 space-y-2">
+                  {metodosPago.map((metodo, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between animate-fade-in"
+                      style={{ animationDelay: `${0.9 + index * 0.1}s` }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: metodo.color }}></div>
+                        <span className="text-sm text-gray-600">{metodo.metodo}</span>
+                      </div>
+                      <span className="text-sm font-medium">{metodo.valor}%</span>
                     </div>
-                    <span className="text-sm font-medium">{metodo.valor}%</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </SlideIn>
 
           {/* Métricas adicionales */}
-          <Card className="bg-white shadow-lg border-0">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-semibold text-gray-900">Métricas Adicionales</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="text-sm text-gray-600">Tiempo promedio por mesa</p>
-                    <p className="font-semibold text-gray-900">45 min</p>
-                  </div>
-                  <Clock className="h-8 w-8 text-gray-400" />
+          <SlideIn direction="up" delay={0.9}>
+            <Card className="bg-white shadow-lg border-0 transition-smooth hover:shadow-xl">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold text-gray-900">Métricas Adicionales</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {[
+                    { title: "Tiempo promedio por mesa", value: "45 min", icon: Clock },
+                    { title: "Rotación de mesas", value: "3.2x", icon: TrendingUp },
+                    { title: "Satisfacción cliente", value: "4.8/5", icon: Users },
+                  ].map((metric, index) => (
+                    <div
+                      key={index}
+                      className="flex justify-between items-center p-3 bg-gray-50 rounded-lg transition-smooth hover:bg-gray-100 animate-fade-in"
+                      style={{ animationDelay: `${1.0 + index * 0.1}s` }}
+                    >
+                      <div>
+                        <p className="text-sm text-gray-600">{metric.title}</p>
+                        <p className="font-semibold text-gray-900">{metric.value}</p>
+                      </div>
+                      {React.createElement(metric.icon, { className: "h-8 w-8 text-gray-400" })}
+                    </div>
+                  ))}
                 </div>
-
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="text-sm text-gray-600">Rotación de mesas</p>
-                    <p className="font-semibold text-gray-900">3.2x</p>
-                  </div>
-                  <TrendingUp className="h-8 w-8 text-gray-400" />
-                </div>
-
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="text-sm text-gray-600">Satisfacción cliente</p>
-                    <p className="font-semibold text-gray-900">4.8/5</p>
-                  </div>
-                  <Users className="h-8 w-8 text-gray-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </SlideIn>
         </div>
 
         {/* Mapa de calor */}
-        <Card className="bg-white shadow-lg border-0 w-full">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg font-semibold text-gray-900">Mapa de Calor - Ventas por Día y Hora</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 lg:p-6">
-            <div className="overflow-x-auto w-full">
-              <div className="grid grid-cols-25 gap-1 min-w-[800px]">
-                {/* Headers de horas */}
-                <div></div>
-                {Array.from({ length: 24 }, (_, i) => (
-                  <div key={i} className="text-xs text-gray-500 text-center p-1">
-                    {i.toString().padStart(2, "0")}
-                  </div>
-                ))}
-
-                {/* Datos del heatmap */}
-                {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((dia, dayIndex) => (
-                  <>
-                    <div key={dia} className="text-xs text-gray-500 flex items-center justify-center">
-                      {dia}
+        <SlideIn direction="up" delay={1.0}>
+          <Card className="bg-white shadow-lg border-0 w-full transition-smooth hover:shadow-xl">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg font-semibold text-gray-900">
+                Mapa de Calor - Ventas por Día y Hora
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 lg:p-6">
+              <div className="overflow-x-auto w-full">
+                <div className="grid grid-cols-25 gap-1 min-w-[800px]">
+                  {/* Headers de horas */}
+                  <div></div>
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <div key={i} className="text-xs text-gray-500 text-center p-1">
+                      {i.toString().padStart(2, "0")}
                     </div>
-                    {Array.from({ length: 24 }, (_, hourIndex) => {
-                      const data = heatmapData.find((d) => d.day === dia && d.hour === hourIndex)
-                      return (
-                        <div
-                          key={`${dia}-${hourIndex}`}
-                          className="aspect-square rounded cursor-pointer hover:scale-110 transition-transform"
-                          style={{
-                            backgroundColor: `rgba(220, 38, 38, ${data?.intensity || 0})`,
-                          }}
-                          title={`${dia} ${hourIndex}:00 - $${data?.value?.toLocaleString() || 0}`}
-                        />
-                      )
-                    })}
-                  </>
-                ))}
+                  ))}
+
+                  {/* Datos del heatmap */}
+                  {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((dia, dayIndex) => (
+                    <>
+                      <div key={dia} className="text-xs text-gray-500 flex items-center justify-center">
+                        {dia}
+                      </div>
+                      {Array.from({ length: 24 }, (_, hourIndex) => {
+                        const data = heatmapData.find((d) => d.day === dia && d.hour === hourIndex)
+                        return (
+                          <div
+                            key={`${dia}-${hourIndex}`}
+                            className="aspect-square rounded cursor-pointer hover:scale-110 transition-transform animate-fade-in"
+                            style={{
+                              backgroundColor: `rgba(220, 38, 38, ${data?.intensity || 0})`,
+                              animationDelay: `${1.1 + (dayIndex * 24 + hourIndex) * 0.01}s`,
+                            }}
+                            title={`${dia} ${hourIndex}:00 - $${data?.value?.toLocaleString() || 0}`}
+                          />
+                        )
+                      })}
+                    </>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="flex items-center justify-between mt-4 text-xs text-gray-500">
-              <span>Menos ventas</span>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: 5 }, (_, i) => (
-                  <div
-                    key={i}
-                    className="w-3 h-3 rounded"
-                    style={{ backgroundColor: `rgba(220, 38, 38, ${(i + 1) * 0.2})` }}
-                  />
-                ))}
+              <div className="flex items-center justify-between mt-4 text-xs text-gray-500">
+                <span>Menos ventas</span>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <div
+                      key={i}
+                      className="w-3 h-3 rounded"
+                      style={{ backgroundColor: `rgba(220, 38, 38, ${(i + 1) * 0.2})` }}
+                    />
+                  ))}
+                </div>
+                <span>Más ventas</span>
               </div>
-              <span>Más ventas</span>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </SlideIn>
       </div>
     </div>
   )

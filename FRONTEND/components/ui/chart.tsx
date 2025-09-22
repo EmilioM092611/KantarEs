@@ -282,9 +282,9 @@ function ChartLegendContent({
         return (
           <div
             key={item.value}
-            className={cn(
-              '[&>svg]:text-muted-foreground flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3',
-            )}
+            className={
+              '[&>svg]:text-muted-foreground flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3'
+            }
           >
             {itemConfig?.icon && !hideIcon ? (
               <itemConfig.icon />

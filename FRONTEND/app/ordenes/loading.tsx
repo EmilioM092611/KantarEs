@@ -1,17 +1,18 @@
 import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function OrdersLoading() {
   return (
     <div className="p-8 space-y-8">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
         <div>
-          <div className="h-8 bg-gray-200 rounded w-32 mb-2 animate-pulse"></div>
-          <div className="h-4 bg-gray-200 rounded w-64 animate-pulse"></div>
+          <Skeleton className="h-8 w-32 mb-2" />
+          <Skeleton className="h-4 w-64" />
         </div>
         <div className="flex items-center gap-4">
-          <div className="h-10 bg-gray-200 rounded w-80 animate-pulse"></div>
-          <div className="h-10 w-10 bg-gray-200 rounded animate-pulse"></div>
-          <div className="h-10 w-32 bg-gray-200 rounded animate-pulse"></div>
+          <Skeleton className="h-10 w-80" />
+          <Skeleton className="h-10 w-10" />
+          <Skeleton className="h-10 w-32" />
         </div>
       </div>
 
@@ -21,11 +22,11 @@ export default function OrdersLoading() {
             <CardContent className="p-6">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
-                  <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse"></div>
-                  <div className="h-8 bg-gray-200 rounded w-16 mb-2 animate-pulse"></div>
-                  <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+                  <Skeleton className="h-4 w-24 mb-2" />
+                  <Skeleton className="h-8 w-16 mb-2" />
+                  <Skeleton className="h-4 w-20" />
                 </div>
-                <div className="w-12 h-12 bg-gray-200 rounded-xl animate-pulse"></div>
+                <Skeleton className="w-12 h-12 rounded-xl" />
               </div>
             </CardContent>
           </Card>
@@ -38,20 +39,20 @@ export default function OrdersLoading() {
             <CardContent className="p-6">
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <div className="h-6 bg-gray-200 rounded w-20 animate-pulse"></div>
-                  <div className="h-6 bg-gray-200 rounded w-16 animate-pulse"></div>
+                  <Skeleton className="h-6 w-20" />
+                  <Skeleton className="h-6 w-16" />
                 </div>
                 <div className="space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
-                  <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
                 </div>
                 <div className="flex justify-between items-center">
-                  <div className="h-6 bg-gray-200 rounded w-20 animate-pulse"></div>
+                  <Skeleton className="h-6 w-20" />
                   <div className="flex gap-2">
-                    <div className="h-8 w-8 bg-gray-200 rounded animate-pulse"></div>
-                    <div className="h-8 w-8 bg-gray-200 rounded animate-pulse"></div>
-                    <div className="h-8 w-8 bg-gray-200 rounded animate-pulse"></div>
+                    <Skeleton className="h-8 w-8" />
+                    <Skeleton className="h-8 w-8" />
+                    <Skeleton className="h-8 w-8" />
                   </div>
                 </div>
               </div>

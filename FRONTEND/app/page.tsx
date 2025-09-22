@@ -24,10 +24,10 @@ export default function LoginPage() {
     setError("")
     setIsLoading(true)
 
-    if (username === "rodo" && password === "rodo123") {
+    if (username === "Kantares" && password === "Kantares2025") {
       setAuth({
-        username: "rodo",
-        name: "Rodolfo",
+        username: "Kantares",
+        name: "Kantares",
         role: "admin",
       })
 
@@ -141,8 +141,12 @@ export default function LoginPage() {
         <div className="text-center text-white max-w-md animate-slide-in-left animate-content-breathe">
           <FadeIn delay={0.2}>
             <div className="mb-8">
-              <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6 border border-white/30">
-                <User className="w-10 h-10 text-white" />
+              <div className="w-32 h-32 mx-auto mb-6 relative">
+                <img 
+                  src="/kantares-logo.jpg" 
+                  alt="Kantares Logo" 
+                  className="w-full h-full object-cover rounded-full"
+                />
               </div>
               <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-white to-red-100 bg-clip-text text-transparent">
                 KANTARES
@@ -235,10 +239,6 @@ export default function LoginPage() {
                   </Button>
                 </form>
               </div>
-            </div>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-500">KantarES Restaurante • Bar</p>
             </div>
           </FadeIn>
         </div>

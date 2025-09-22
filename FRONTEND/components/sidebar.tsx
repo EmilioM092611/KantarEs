@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Home,
   Users,
@@ -152,14 +152,13 @@ export function Sidebar() {
           )}
         >
           <Avatar className="h-10 w-10">
-            <AvatarImage src="/restaurant-manager-avatar.png" />
             <AvatarFallback className="!bg-red-800 !text-white text-sm font-semibold border border-red-600">
-              JP
+              KE
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium !text-white truncate">Juan Pérez</p>
+              <p className="text-sm font-medium !text-white truncate">KantarEs</p>
               <p className="text-xs !text-red-100 truncate">Administrador</p>
             </div>
           )}

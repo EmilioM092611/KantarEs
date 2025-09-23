@@ -357,8 +357,9 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Loading overlay cuando se hace click en un módulo */}
       {isTransitioning && (
-        <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-white rounded-xl shadow-2xl p-6 border border-gray-100">
             <div className="flex items-center gap-3">
               <div className="animate-spin rounded-full h-6 w-6 border-2 border-red-600 border-t-transparent"></div>

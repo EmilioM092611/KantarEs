@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Eye, EyeOff, User, Lock } from "lucide-react"
 import { setAuth } from "@/lib/auth"
 import { FadeIn } from "@/components/fade-in"
+import { PageLoader } from "@/components/page-loader"
 
 export default function LoginPage() {
   const [username, setUsername] = useState("")
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isTransitioning, setIsTransitioning] = useState(false)
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -24,19 +26,34 @@ export default function LoginPage() {
     setError("")
     setIsLoading(true)
 
+    // Simular delay de validación
+    await new Promise(resolve => setTimeout(resolve, 500))
+
     if (username === "Kantares" && password === "Kantares2025") {
+      // Mostrar pantalla de carga antes de la transición
+      setIsTransitioning(true)
+      
+      // Guardar autenticación
       setAuth({
         username: "Kantares",
         name: "Kantares",
         role: "admin",
       })
 
+      // Delay intencional para mostrar la pantalla de carga
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Navegar al dashboard
       router.push("/dashboard")
     } else {
       setError("Credenciales incorrectas. Intenta de nuevo.")
+      setIsLoading(false)
     }
+  }
 
-    setIsLoading(false)
+  // Si está en transición, mostrar pantalla de carga
+  if (isTransitioning) {
+    return <PageLoader text="Cargando..." />
   }
 
   return (
@@ -194,6 +211,7 @@ export default function LoginPage() {
                         onChange={(e) => setUsername(e.target.value)}
                         className="pl-12 h-14 border-0 border-b-2 border-gray-200 focus:border-red-500 focus:ring-0 rounded-none bg-transparent text-gray-800 placeholder-gray-400 transition-all duration-300"
                         required
+                        disabled={isLoading}
                       />
                     </div>
                   </div>
@@ -212,11 +230,13 @@ export default function LoginPage() {
                         onChange={(e) => setPassword(e.target.value)}
                         className="pl-12 pr-12 h-14 border-0 border-b-2 border-gray-200 focus:border-red-500 focus:ring-0 rounded-none bg-transparent text-gray-800 placeholder-gray-400 transition-all duration-300"
                         required
+                        disabled={isLoading}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        disabled={isLoading}
                       >
                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
@@ -231,7 +251,7 @@ export default function LoginPage() {
                     {isLoading ? (
                       <div className="flex items-center justify-center gap-2">
                         <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                        <span>INICIANDO SESIÓN...</span>
+                        <span>VERICANDO...</span>
                       </div>
                     ) : (
                       "INICIAR SESIÓN"

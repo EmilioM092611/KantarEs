@@ -74,7 +74,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }, [checkAuth])
 
   if (isLoading) {
-    return <PageLoader text="Cargando KANTARES..." />
+    return <PageLoader text="Cargando..." />
   }
 
   return <>{children}</>

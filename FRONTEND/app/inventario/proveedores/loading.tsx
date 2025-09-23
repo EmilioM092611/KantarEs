@@ -1,3 +1,5 @@
+import { ModuleLoader } from "@/components/module-loader"
+
 export default function Loading() {
-  return null
+  return <ModuleLoader moduleName="Proveedores" description="Preparando módulo de proveedores..." />
 }

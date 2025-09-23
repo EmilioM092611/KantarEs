@@ -29,14 +29,14 @@ export default function LoginPage() {
     // Simular delay de validación
     await new Promise(resolve => setTimeout(resolve, 500))
 
-    if (username === "Kantares" && password === "Kantares2025") {
+    if (username === "kantares" && password === "kantares2025") {
       // Mostrar pantalla de carga antes de la transición
       setIsTransitioning(true)
       
       // Guardar autenticación
       setAuth({
-        username: "Kantares",
-        name: "Kantares",
+        username: "kantares",
+        name: "kantares",
         role: "admin",
       })
 

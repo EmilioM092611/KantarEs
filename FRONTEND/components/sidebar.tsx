@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Home,
   Users,
@@ -24,7 +24,7 @@ import {
   Building2,
   MapPin,
   Printer,
-} from "lucide-react"
+} from "lucide-react";
 
 const menuSections = [
   {
@@ -43,9 +43,18 @@ const menuSections = [
     items: [
       { icon: Package, label: "Menú", href: "/productos" },
       { icon: Tag, label: "Promociones", href: "/promociones" },
+    ],
+  },
+  {
+    title: "Inventario",
+    items: [
       { icon: Warehouse, label: "Inventario", href: "/inventario" },
       { icon: ShoppingCart, label: "Compras", href: "/inventario/compras" },
-      { icon: Building2, label: "Proveedores", href: "/inventario/proveedores" },
+      {
+        icon: Building2,
+        label: "Proveedores",
+        href: "/inventario/proveedores",
+      },
     ],
   },
   {
@@ -65,29 +74,29 @@ const menuSections = [
       { icon: Printer, label: "Impresoras", href: "/configuracion/impresoras" },
     ],
   },
-]
+];
 
 export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false)
-  const pathname = usePathname()
+  const [collapsed, setCollapsed] = useState(false);
+  const pathname = usePathname();
 
   const toggleSidebar = () => {
-    const newCollapsed = !collapsed
-    setCollapsed(newCollapsed)
+    const newCollapsed = !collapsed;
+    setCollapsed(newCollapsed);
 
     // Dispatch custom event to notify layout
     window.dispatchEvent(
       new CustomEvent("sidebarToggle", {
         detail: { collapsed: newCollapsed },
-      }),
-    )
-  }
+      })
+    );
+  };
 
   return (
     <div
       className={cn(
         "fixed left-0 top-0 z-40 h-screen !bg-red-700 bg-gradient-to-b from-red-600 via-red-700 to-red-900 transition-all duration-300 shadow-2xl flex flex-col",
-        collapsed ? "w-20" : "w-72",
+        collapsed ? "w-20" : "w-72"
       )}
     >
       {/* Header */}
@@ -102,8 +111,17 @@ export function Sidebar() {
             </div>
           </div>
         )}
-        <Button variant="ghost" size="sm" onClick={toggleSidebar} className="h-9 w-9 p-0 !text-white hover:bg-white/20">
-          {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleSidebar}
+          className="h-9 w-9 p-0 !text-white hover:bg-white/20"
+        >
+          {collapsed ? (
+            <ChevronRight className="h-5 w-5" />
+          ) : (
+            <ChevronLeft className="h-5 w-5" />
+          )}
         </Button>
       </div>
 
@@ -119,7 +137,7 @@ export function Sidebar() {
               )}
               <nav className="space-y-2 px-2">
                 {section.items.map((item) => {
-                  const isActive = pathname === item.href
+                  const isActive = pathname === item.href;
                   return (
                     <Link key={item.href} href={item.href}>
                       <div
@@ -128,14 +146,18 @@ export function Sidebar() {
                           isActive
                             ? "!bg-red-800 !text-white shadow-lg border border-red-600"
                             : "hover:bg-white/10 !text-red-100 hover:!text-white hover:shadow-md",
-                          collapsed && "justify-center",
+                          collapsed && "justify-center"
                         )}
                       >
                         <item.icon className="h-5 w-5 flex-shrink-0" />
-                        {!collapsed && <span className="font-medium text-sm">{item.label}</span>}
+                        {!collapsed && (
+                          <span className="font-medium text-sm">
+                            {item.label}
+                          </span>
+                        )}
                       </div>
                     </Link>
-                  )
+                  );
                 })}
               </nav>
             </div>
@@ -148,7 +170,7 @@ export function Sidebar() {
         <div
           className={cn(
             "flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-colors cursor-pointer",
-            collapsed && "justify-center",
+            collapsed && "justify-center"
           )}
         >
           <Avatar className="h-10 w-10">
@@ -158,12 +180,14 @@ export function Sidebar() {
           </Avatar>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium !text-white truncate">KantarEs</p>
+              <p className="text-sm font-medium !text-white truncate">
+                KantarEs
+              </p>
               <p className="text-xs !text-red-100 truncate">Administrador</p>
             </div>
           )}
         </div>
       </div>
     </div>
-  )
+  );
 }

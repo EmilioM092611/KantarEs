@@ -1,81 +1,64 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useEffect, useState, useCallback } from "react"
-import { useRouter, usePathname } from "next/navigation"
-import { PageLoader } from "./page-loader"
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { PageLoader } from "@/components/page-loader";
 
 interface AuthGuardProps {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const router = useRouter()
-  const pathname = usePathname()
+  const pathname = usePathname();
+  const router = useRouter();
+  const [isChecking, setIsChecking] = useState(true);
 
-  const checkAuth = useCallback(() => {
-    const auth = localStorage.getItem("kantares_auth")
-    const isLoginPage = pathname === "/"
-
-    if (!auth && !isLoginPage) {
-      // Not authenticated and not on login page - redirect to login
-      router.replace("/")
-      setIsAuthenticated(false)
-      setIsLoading(false)
-      return
-    }
-
-    if (auth && isLoginPage) {
-      // Authenticated but on login page - redirect to dashboard
-      router.replace("/dashboard")
-      setIsAuthenticated(true)
-      setIsLoading(false)
-      return
-    }
-
-    // Set authentication state and stop loading
-    setIsAuthenticated(!!auth)
-    setIsLoading(false)
-  }, [router, pathname])
+  // Rutas que NO requieren autenticación
+  const publicRoutes = ["/login", "/", "/register", "/forgot-password"];
 
   useEffect(() => {
-    const timer = setTimeout(checkAuth, 50)
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "kantares_auth") {
-        if (!e.newValue) {
-          // Auth was removed, redirect to login
-          setIsAuthenticated(false)
-          router.replace("/")
-        } else {
-          // Auth was added
-          setIsAuthenticated(true)
-          if (pathname === "/") {
-            router.replace("/dashboard")
-          }
-        }
+    const checkAuth = async () => {
+      // Si es una ruta pública, no verificar autenticación
+      if (publicRoutes.includes(pathname)) {
+        setIsChecking(false);
+        return;
       }
-    }
 
-    const handleAuthChange = () => {
-      checkAuth()
-    }
+      // Pequeño delay para asegurar que el localStorage esté disponible
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
-    window.addEventListener("storage", handleStorageChange)
-    window.addEventListener("kantares-auth-change", handleAuthChange)
+      const token = localStorage.getItem("token");
+      const auth = localStorage.getItem("auth");
 
-    return () => {
-      clearTimeout(timer)
-      window.removeEventListener("storage", handleStorageChange)
-      window.removeEventListener("kantares-auth-change", handleAuthChange)
-    }
-  }, [checkAuth])
+      console.log("AuthGuard - Verificando ruta:", pathname, {
+        hasToken: !!token,
+        hasAuth: !!auth,
+      });
 
-  if (isLoading) {
-    return <PageLoader text="Cargando..." />
+      // Si no hay token y no es una ruta pública, redirigir a login
+      if (!token && !publicRoutes.includes(pathname)) {
+        console.log("AuthGuard: No autenticado, redirigiendo a login");
+        router.push("/login");
+        return;
+      }
+
+      // Si hay token y está en login, redirigir a dashboard
+      if (token && pathname === "/login") {
+        console.log("AuthGuard: Ya autenticado, redirigiendo a dashboard");
+        router.push("/dashboard");
+        return;
+      }
+
+      setIsChecking(false);
+    };
+
+    checkAuth();
+  }, [pathname, router]);
+
+  // Mientras verifica, mostrar loader solo si NO es una ruta pública
+  if (isChecking && !publicRoutes.includes(pathname)) {
+    return <PageLoader text="Verificando sesión..." />;
   }
 
-  return <>{children}</>
+  return <>{children}</>;
 }

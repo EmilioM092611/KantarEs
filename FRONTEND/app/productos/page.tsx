@@ -423,7 +423,7 @@ export default function ProductosPage() {
               className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white gap-2 transition-smooth hover:scale-105 shadow-lg"
             >
               <Plus className="h-4 w-4" />
-              Nuevo Platillo
+              Nuevo Producto
             </Button>
           </div>
         </div>

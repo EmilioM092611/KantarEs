@@ -1,59 +1,92 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, EyeOff, User, Lock } from "lucide-react"
-import { setAuth } from "@/lib/auth"
-import { FadeIn } from "@/components/fade-in"
-import { PageLoader } from "@/components/page-loader"
+import type React from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Eye, EyeOff, User, Lock } from "lucide-react";
+import { setAuth } from "@/lib/auth";
+import { FadeIn } from "@/components/fade-in";
+import { PageLoader } from "@/components/page-loader";
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const router = useRouter()
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
 
-    // Simular delay de validación
-    await new Promise(resolve => setTimeout(resolve, 500))
+    try {
+      const response = await fetch("http://localhost:3000/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username,
+          password,
+        }),
+      });
 
-    if (username === "kantares" && password === "kantares2025") {
-      // Mostrar pantalla de carga antes de la transición
-      setIsTransitioning(true)
-      
-      // Guardar autenticación
-      setAuth({
-        username: "kantares",
-        name: "kantares",
-        role: "admin",
-      })
+      const data = await response.json();
 
-      // Delay intencional para mostrar la pantalla de carga
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      // Navegar al dashboard
-      router.push("/dashboard")
-    } else {
-      setError("Credenciales incorrectas. Intenta de nuevo.")
-      setIsLoading(false)
+      if (response.ok && data.access_token) {
+        console.log("Login exitoso, datos recibidos:", data);
+
+        // Guardar TODO una sola vez
+        const authData = {
+          username: data.user.username,
+          name: data.user.nombre || "Administrador KantarEs", // Fallback por si viene null
+          role: data.user.rol,
+          token: data.access_token,
+          email: data.user.email,
+          id: data.user.id,
+        };
+
+        // Guardar en localStorage
+        localStorage.setItem("auth", JSON.stringify(authData));
+        localStorage.setItem("token", data.access_token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        console.log("Auth guardado:", authData);
+
+        // Mostrar pantalla de carga
+        setIsTransitioning(true);
+
+        // Delay para mostrar la animación
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        // Navegar al dashboard
+        router.push("/dashboard");
+      } else {
+        if (response.status === 401) {
+          setError("Usuario o contraseña incorrectos");
+        } else if (data.message) {
+          setError(data.message);
+        } else {
+          setError("Error al iniciar sesión. Intenta de nuevo.");
+        }
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error("Error de conexión:", error);
+      setError("Error de conexión con el servidor");
+      setIsLoading(false);
     }
-  }
-
+  };
   // Si está en transición, mostrar pantalla de carga
   if (isTransitioning) {
-    return <PageLoader text="Cargando..." />
+    return <PageLoader text="Cargando..." />;
   }
 
   return (
@@ -72,7 +105,13 @@ export default function LoginPage() {
             fill="url(#redGradient)"
           />
           <defs>
-            <linearGradient id="redGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient
+              id="redGradient"
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="100%"
+            >
               <stop offset="0%" stopColor="#ef4444" />
               <stop offset="30%" stopColor="#dc2626" />
               <stop offset="70%" stopColor="#b91c1c" />
@@ -93,7 +132,13 @@ export default function LoginPage() {
             fill="url(#redGradient2)"
           />
           <defs>
-            <linearGradient id="redGradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient
+              id="redGradient2"
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="100%"
+            >
               <stop offset="0%" stopColor="#f87171" />
               <stop offset="50%" stopColor="#ef4444" />
               <stop offset="100%" stopColor="#dc2626" />
@@ -159,9 +204,9 @@ export default function LoginPage() {
           <FadeIn delay={0.4}>
             <div className="mb-8">
               <div className="w-32 h-32 mx-auto mb-6 relative">
-                <img 
-                  src="/kantares-logo.jpg" 
-                  alt="Kantares Logo" 
+                <img
+                  src="/kantares-logo.jpg"
+                  alt="Kantares Logo"
                   className="w-full h-full object-cover rounded-full"
                 />
               </div>
@@ -186,19 +231,28 @@ export default function LoginPage() {
 
               <div className="relative z-10">
                 <div className="text-center mb-8">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Iniciar Sesión</h2>
-                  <p className="text-gray-600 text-sm">Ingresa tus credenciales para continuar</p>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                    Iniciar Sesión
+                  </h2>
+                  <p className="text-gray-600 text-sm">
+                    Ingresa tus credenciales para continuar
+                  </p>
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-6">
                   {error && (
                     <Alert className="border-red-200 bg-red-50/80 backdrop-blur-sm rounded-xl">
-                      <AlertDescription className="text-red-700 text-sm">{error}</AlertDescription>
+                      <AlertDescription className="text-red-700 text-sm">
+                        {error}
+                      </AlertDescription>
                     </Alert>
                   )}
 
                   <div className="space-y-2">
-                    <Label htmlFor="username" className="text-gray-700 font-medium text-sm">
+                    <Label
+                      htmlFor="username"
+                      className="text-gray-700 font-medium text-sm"
+                    >
                       USUARIO
                     </Label>
                     <div className="relative">
@@ -217,7 +271,10 @@ export default function LoginPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="password" className="text-gray-700 font-medium text-sm">
+                    <Label
+                      htmlFor="password"
+                      className="text-gray-700 font-medium text-sm"
+                    >
                       CONTRASEÑA
                     </Label>
                     <div className="relative">
@@ -238,7 +295,11 @@ export default function LoginPage() {
                         className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                         disabled={isLoading}
                       >
-                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        {showPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -266,48 +327,70 @@ export default function LoginPage() {
 
       <style jsx>{`
         @keyframes float-slow {
-          0%, 100% { transform: translateY(0px) translateX(0px) scale(1); }
-          25% { transform: translateY(-20px) translateX(10px) scale(1.05); }
-          50% { transform: translateY(-10px) translateX(-10px) scale(0.95); }
-          75% { transform: translateY(-30px) translateX(5px) scale(1.02); }
+          0%,
+          100% {
+            transform: translateY(0px) translateX(0px) scale(1);
+          }
+          25% {
+            transform: translateY(-20px) translateX(10px) scale(1.05);
+          }
+          50% {
+            transform: translateY(-10px) translateX(-10px) scale(0.95);
+          }
+          75% {
+            transform: translateY(-30px) translateX(5px) scale(1.02);
+          }
         }
-        
+
         @keyframes float-medium {
-          0%, 100% { transform: translateY(0px) translateX(0px) scale(1); }
-          33% { transform: translateY(-15px) translateX(-8px) scale(1.03); }
-          66% { transform: translateY(-25px) translateX(8px) scale(0.97); }
+          0%,
+          100% {
+            transform: translateY(0px) translateX(0px) scale(1);
+          }
+          33% {
+            transform: translateY(-15px) translateX(-8px) scale(1.03);
+          }
+          66% {
+            transform: translateY(-25px) translateX(8px) scale(0.97);
+          }
         }
-        
+
         @keyframes float-fast {
-          0%, 100% { transform: translateY(0px) translateX(0px) scale(1); }
-          50% { transform: translateY(-12px) translateX(4px) scale(1.02); }
+          0%,
+          100% {
+            transform: translateY(0px) translateX(0px) scale(1);
+          }
+          50% {
+            transform: translateY(-12px) translateX(4px) scale(1.02);
+          }
         }
 
         /* Added new animations for left side entrance and continuous movement */
         @keyframes slide-in-left {
-          0% { 
+          0% {
             transform: translateX(-100px);
             opacity: 0;
           }
-          100% { 
+          100% {
             transform: translateX(0);
             opacity: 1;
           }
         }
-        
+
         @keyframes content-breathe {
-          0%, 100% { 
+          0%,
+          100% {
             transform: translateY(0px) scale(1) rotate(0deg);
           }
-          50% { 
+          50% {
             transform: translateY(-10px) scale(1.02) rotate(0.3deg);
           }
         }
-        
+
         .animate-slide-in-left {
           animation: slide-in-left 1.2s ease-out forwards;
         }
-        
+
         .animate-content-breathe {
           animation: content-breathe 5s ease-in-out infinite;
           animation-delay: 1.2s;
@@ -315,35 +398,37 @@ export default function LoginPage() {
 
         /* Form animations */
         @keyframes form-breathe {
-          0%, 100% { 
+          0%,
+          100% {
             transform: translateY(0px) scale(1) rotate(0deg);
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
           }
-          50% { 
+          50% {
             transform: translateY(-8px) scale(1.02) rotate(0.5deg);
             box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.35);
           }
         }
-        
+
         @keyframes form-hover {
-          0%, 100% { 
+          0%,
+          100% {
             transform: translateY(-5px) scale(1.03) rotate(-0.5deg);
             box-shadow: 0 40px 70px -12px rgba(0, 0, 0, 0.4);
           }
-          50% { 
+          50% {
             transform: translateY(-12px) scale(1.05) rotate(0.5deg);
             box-shadow: 0 50px 80px -12px rgba(0, 0, 0, 0.45);
           }
         }
-        
+
         .animate-form-breathe {
           animation: form-breathe 4s ease-in-out infinite;
         }
-        
+
         .animate-form-hover {
           animation: form-hover 2s ease-in-out infinite;
         }
       `}</style>
     </div>
-  )
+  );
 }

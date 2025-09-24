@@ -1,33 +1,50 @@
-"use client"
+"use client";
 
-export const AUTH_KEY = "kantares_auth"
-export const USER_KEY = "kantares_user"
+export const AUTH_KEY = "kantares_auth";
+export const USER_KEY = "kantares_user";
+export interface AuthData {
+  username: string;
+  name: string;
+  role: string;
+  token?: string;
+  email?: string;
+  id?: number;
+}
 
-export function setAuth(user: any) {
-  localStorage.setItem(AUTH_KEY, "true")
-  localStorage.setItem(USER_KEY, JSON.stringify(user))
-  // Dispatch custom event for immediate auth state updates
-  window.dispatchEvent(new CustomEvent("kantares-auth-change"))
+// lib/auth.ts
+export function setAuth(data: AuthData) {
+  // Guardar en localStorage
+  if (typeof window !== "undefined") {
+    localStorage.setItem("auth", JSON.stringify(data));
+    if (data.token) {
+      localStorage.setItem("token", data.token);
+    }
+    // También guardar en cookies si usas middleware
+    document.cookie = `token=${data.token}; path=/`;
+  }
 }
 
 export function clearAuth() {
-  localStorage.removeItem(AUTH_KEY)
-  localStorage.removeItem(USER_KEY)
-  // Dispatch custom event for immediate auth state updates
-  window.dispatchEvent(new CustomEvent("kantares-auth-change"))
+  localStorage.removeItem("auth");
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
 }
 
-export function getAuth() {
-  if (typeof window === "undefined") return null
-  return localStorage.getItem(AUTH_KEY)
+export function getAuth(): AuthData | null {
+  const auth = localStorage.getItem("auth");
+  return auth ? JSON.parse(auth) : null;
+}
+
+export function getToken(): string | null {
+  return localStorage.getItem("token");
 }
 
 export function getUser() {
-  if (typeof window === "undefined") return null
-  const user = localStorage.getItem(USER_KEY)
-  return user ? JSON.parse(user) : null
+  if (typeof window === "undefined") return null;
+  const user = localStorage.getItem(USER_KEY);
+  return user ? JSON.parse(user) : null;
 }
 
 export function isAuthenticated() {
-  return !!getAuth()
+  return !!getAuth();
 }

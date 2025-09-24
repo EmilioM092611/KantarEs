@@ -14,7 +14,7 @@ export function useLoading(initialState = false) {
   }, [])
 
   const withLoading = useCallback(
-    async (asyncFn) => {
+    async (asyncFn: () => any) => {
       startLoading()
       try {
         const result = await asyncFn()

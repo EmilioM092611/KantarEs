@@ -2,24 +2,23 @@
 
 import type React from "react";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, User, Lock } from "lucide-react";
-import { setAuth } from "@/lib/auth";
 import { FadeIn } from "@/components/fade-in";
-import { PageLoader } from "@/components/page-loader";
+import { useAuth } from "@/contexts/AuthContext"; // ¡Importamos el hook mágico!
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false); // Este estado es solo para la llamada a la API
+
+  // Obtenemos la función 'login' de nuestro contexto
+  const { login } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,41 +40,26 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok && data.access_token) {
-        console.log("Login exitoso, datos recibidos:", data);
-
-        // Guardar TODO una sola vez
+        // Preparamos los datos de autenticación
         const authData = {
-          username: data.user.username,
-          name: data.user.nombre || "Administrador KantarEs", // Fallback por si viene null
-          role: data.user.rol,
           token: data.access_token,
-          email: data.user.email,
-          id: data.user.id,
+          user: {
+            id: data.user.id,
+            username: data.user.username,
+            email: data.user.email,
+            nombre: data.user.nombre || "Usuario KantarEs",
+            rol: data.user.rol,
+          },
         };
 
-        // Guardar en localStorage
-        localStorage.setItem("auth", JSON.stringify(authData));
-        localStorage.setItem("token", data.access_token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        // ¡Aquí está la magia!
+        // Llamamos a la función 'login' del contexto.
+        // Ella se encargará de guardar en localStorage, actualizar el estado global y redirigir.
+        login(authData);
 
-        console.log("Auth guardado:", authData);
-
-        // Mostrar pantalla de carga
-        setIsTransitioning(true);
-
-        // Delay para mostrar la animación
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        // Navegar al dashboard
-        router.push("/dashboard");
+        // Ya no necesitamos 'setIsTransitioning', 'setTimeout' o 'router.push' aquí.
       } else {
-        if (response.status === 401) {
-          setError("Usuario o contraseña incorrectos");
-        } else if (data.message) {
-          setError(data.message);
-        } else {
-          setError("Error al iniciar sesión. Intenta de nuevo.");
-        }
+        setError(data.message || "Usuario o contraseña incorrectos");
         setIsLoading(false);
       }
     } catch (error) {
@@ -84,16 +68,13 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
-  // Si está en transición, mostrar pantalla de carga
-  if (isTransitioning) {
-    return <PageLoader text="Cargando..." />;
-  }
+
+  // El PageLoader ya no es necesario aquí, porque el AuthGuard se encargará de las transiciones.
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-red-50 to-red-100">
       {/* Organic curved background shapes */}
       <div className="absolute inset-0">
-        {/* Main curved divider */}
         <svg
           className="absolute inset-0 w-full h-full"
           viewBox="0 0 1200 800"
@@ -120,7 +101,6 @@ export default function LoginPage() {
           </defs>
         </svg>
 
-        {/* Secondary curved overlay */}
         <svg
           className="absolute inset-0 w-full h-full opacity-60"
           viewBox="0 0 1200 800"
@@ -149,7 +129,6 @@ export default function LoginPage() {
 
       {/* Floating decorative circles */}
       <div className="absolute inset-0 overflow-hidden">
-        {/* Large circles */}
         <div className="absolute top-20 right-32 w-32 h-32 bg-gradient-to-br from-red-300/40 to-red-500/60 rounded-full blur-sm animate-float-slow"></div>
         <div
           className="absolute top-1/3 right-20 w-24 h-24 bg-gradient-to-br from-red-400/30 to-red-600/50 rounded-full blur-sm animate-float-medium"
@@ -163,8 +142,6 @@ export default function LoginPage() {
           className="absolute bottom-20 right-16 w-20 h-20 bg-gradient-to-br from-red-500/40 to-red-700/60 rounded-full blur-sm animate-float-fast"
           style={{ animationDelay: "0.5s" }}
         ></div>
-
-        {/* Medium circles */}
         <div
           className="absolute top-1/2 right-60 w-16 h-16 bg-gradient-to-br from-red-300/60 to-red-500/80 rounded-full animate-float-medium"
           style={{ animationDelay: "1.5s" }}
@@ -173,8 +150,6 @@ export default function LoginPage() {
           className="absolute top-40 right-80 w-12 h-12 bg-gradient-to-br from-red-400/50 to-red-600/70 rounded-full animate-float-fast"
           style={{ animationDelay: "2.5s" }}
         ></div>
-
-        {/* Small accent circles */}
         <div
           className="absolute top-60 right-24 w-8 h-8 bg-red-300/70 rounded-full animate-pulse"
           style={{ animationDelay: "0.8s" }}
@@ -183,7 +158,6 @@ export default function LoginPage() {
           className="absolute bottom-40 right-72 w-6 h-6 bg-red-400/80 rounded-full animate-pulse"
           style={{ animationDelay: "1.8s" }}
         ></div>
-
         <div
           className="absolute top-32 right-48 w-10 h-10 bg-red-200/60 rounded-full blur-sm animate-float-slow"
           style={{ animationDelay: "3s" }}
@@ -226,9 +200,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           <FadeIn delay={0.4}>
             <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/50 relative overflow-hidden animate-form-breathe hover:animate-form-hover transition-all duration-500">
-              {/* Subtle background pattern */}
               <div className="absolute inset-0 bg-gradient-to-br from-red-50/50 via-transparent to-red-100/30 rounded-3xl"></div>
-
               <div className="relative z-10">
                 <div className="text-center mb-8">
                   <h2 className="text-2xl font-bold text-gray-800 mb-2">
@@ -238,7 +210,6 @@ export default function LoginPage() {
                     Ingresa tus credenciales para continuar
                   </p>
                 </div>
-
                 <form onSubmit={handleLogin} className="space-y-6">
                   {error && (
                     <Alert className="border-red-200 bg-red-50/80 backdrop-blur-sm rounded-xl">
@@ -247,7 +218,6 @@ export default function LoginPage() {
                       </AlertDescription>
                     </Alert>
                   )}
-
                   <div className="space-y-2">
                     <Label
                       htmlFor="username"
@@ -269,7 +239,6 @@ export default function LoginPage() {
                       />
                     </div>
                   </div>
-
                   <div className="space-y-2">
                     <Label
                       htmlFor="password"
@@ -303,7 +272,6 @@ export default function LoginPage() {
                       </button>
                     </div>
                   </div>
-
                   <Button
                     type="submit"
                     className="w-full h-14 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl mt-8"
@@ -312,7 +280,7 @@ export default function LoginPage() {
                     {isLoading ? (
                       <div className="flex items-center justify-center gap-2">
                         <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                        <span>VERICANDO...</span>
+                        <span>VERIFICANDO...</span>
                       </div>
                     ) : (
                       "INICIAR SESIÓN"
@@ -341,7 +309,6 @@ export default function LoginPage() {
             transform: translateY(-30px) translateX(5px) scale(1.02);
           }
         }
-
         @keyframes float-medium {
           0%,
           100% {
@@ -354,7 +321,6 @@ export default function LoginPage() {
             transform: translateY(-25px) translateX(8px) scale(0.97);
           }
         }
-
         @keyframes float-fast {
           0%,
           100% {
@@ -364,8 +330,6 @@ export default function LoginPage() {
             transform: translateY(-12px) translateX(4px) scale(1.02);
           }
         }
-
-        /* Added new animations for left side entrance and continuous movement */
         @keyframes slide-in-left {
           0% {
             transform: translateX(-100px);
@@ -376,7 +340,6 @@ export default function LoginPage() {
             opacity: 1;
           }
         }
-
         @keyframes content-breathe {
           0%,
           100% {
@@ -386,17 +349,13 @@ export default function LoginPage() {
             transform: translateY(-10px) scale(1.02) rotate(0.3deg);
           }
         }
-
         .animate-slide-in-left {
           animation: slide-in-left 1.2s ease-out forwards;
         }
-
         .animate-content-breathe {
           animation: content-breathe 5s ease-in-out infinite;
           animation-delay: 1.2s;
         }
-
-        /* Form animations */
         @keyframes form-breathe {
           0%,
           100% {
@@ -408,7 +367,6 @@ export default function LoginPage() {
             box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.35);
           }
         }
-
         @keyframes form-hover {
           0%,
           100% {
@@ -420,11 +378,9 @@ export default function LoginPage() {
             box-shadow: 0 50px 80px -12px rgba(0, 0, 0, 0.45);
           }
         }
-
         .animate-form-breathe {
           animation: form-breathe 4s ease-in-out infinite;
         }
-
         .animate-form-hover {
           animation: form-hover 2s ease-in-out infinite;
         }

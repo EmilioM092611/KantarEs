@@ -1,15 +1,27 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Settings,
   Database,
@@ -22,13 +34,14 @@ import {
   Save,
   RefreshCw,
   LogOut,
-} from "lucide-react"
-import { useRouter } from "next/navigation"
-import { FadeIn } from "@/components/fade-in"
-import { SlideIn } from "@/components/slide-in"
+} from "lucide-react";
+// El import de useRouter ya no es necesario aquí
+import { FadeIn } from "@/components/fade-in";
+import { SlideIn } from "@/components/slide-in";
+import { useAuth } from "@/contexts/AuthContext"; // 1. Importar el hook useAuth
 
 export default function SistemaPage() {
-  const router = useRouter()
+  const { logout } = useAuth(); // 2. Obtener la función logout del contexto
 
   const [systemSettings, setSystemSettings] = useState({
     restaurantName: "KANTARES",
@@ -39,22 +52,24 @@ export default function SistemaPage() {
     timezone: "America/Mexico_City",
     language: "es",
     taxRate: "16",
-  })
+  });
 
+  // 3. La función handleLogout ahora es mucho más simple y utiliza el contexto
   const handleLogout = () => {
-    localStorage.removeItem("kantares_auth")
-    localStorage.removeItem("kantares_user")
-    // Force a page reload to ensure AuthGuard picks up the change
-    window.location.href = "/"
-  }
+    logout();
+  };
 
   return (
     <div className="p-8 space-y-8">
       <FadeIn>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Configuración del Sistema</h1>
-            <p className="text-gray-600 mt-1">Administra la configuración general del restaurante</p>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Configuración del Sistema
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Administra la configuración general del restaurante
+            </p>
           </div>
           <div className="flex gap-3">
             <Button
@@ -91,16 +106,25 @@ export default function SistemaPage() {
                     <Settings className="w-5 h-5" />
                     Información del Restaurante
                   </CardTitle>
-                  <CardDescription>Configuración básica del establecimiento</CardDescription>
+                  <CardDescription>
+                    Configuración básica del establecimiento
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="restaurantName">Nombre del Restaurante</Label>
+                      <Label htmlFor="restaurantName">
+                        Nombre del Restaurante
+                      </Label>
                       <Input
                         id="restaurantName"
                         value={systemSettings.restaurantName}
-                        onChange={(e) => setSystemSettings({ ...systemSettings, restaurantName: e.target.value })}
+                        onChange={(e) =>
+                          setSystemSettings({
+                            ...systemSettings,
+                            restaurantName: e.target.value,
+                          })
+                        }
                       />
                     </div>
                     <div>
@@ -108,7 +132,12 @@ export default function SistemaPage() {
                       <Input
                         id="phone"
                         value={systemSettings.phone}
-                        onChange={(e) => setSystemSettings({ ...systemSettings, phone: e.target.value })}
+                        onChange={(e) =>
+                          setSystemSettings({
+                            ...systemSettings,
+                            phone: e.target.value,
+                          })
+                        }
                       />
                     </div>
                   </div>
@@ -117,7 +146,12 @@ export default function SistemaPage() {
                     <Textarea
                       id="address"
                       value={systemSettings.address}
-                      onChange={(e) => setSystemSettings({ ...systemSettings, address: e.target.value })}
+                      onChange={(e) =>
+                        setSystemSettings({
+                          ...systemSettings,
+                          address: e.target.value,
+                        })
+                      }
                       rows={2}
                     />
                   </div>
@@ -127,7 +161,12 @@ export default function SistemaPage() {
                       id="email"
                       type="email"
                       value={systemSettings.email}
-                      onChange={(e) => setSystemSettings({ ...systemSettings, email: e.target.value })}
+                      onChange={(e) =>
+                        setSystemSettings({
+                          ...systemSettings,
+                          email: e.target.value,
+                        })
+                      }
                     />
                   </div>
                 </CardContent>
@@ -141,7 +180,9 @@ export default function SistemaPage() {
                     <Globe className="w-5 h-5" />
                     Configuración Regional
                   </CardTitle>
-                  <CardDescription>Configuración de moneda, zona horaria e idioma</CardDescription>
+                  <CardDescription>
+                    Configuración de moneda, zona horaria e idioma
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -149,14 +190,23 @@ export default function SistemaPage() {
                       <Label htmlFor="currency">Moneda</Label>
                       <Select
                         value={systemSettings.currency}
-                        onValueChange={(value) => setSystemSettings({ ...systemSettings, currency: value })}
+                        onValueChange={(value) =>
+                          setSystemSettings({
+                            ...systemSettings,
+                            currency: value,
+                          })
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="MXN">Peso Mexicano (MXN)</SelectItem>
-                          <SelectItem value="USD">Dólar Americano (USD)</SelectItem>
+                          <SelectItem value="MXN">
+                            Peso Mexicano (MXN)
+                          </SelectItem>
+                          <SelectItem value="USD">
+                            Dólar Americano (USD)
+                          </SelectItem>
                           <SelectItem value="EUR">Euro (EUR)</SelectItem>
                         </SelectContent>
                       </Select>
@@ -165,15 +215,24 @@ export default function SistemaPage() {
                       <Label htmlFor="timezone">Zona Horaria</Label>
                       <Select
                         value={systemSettings.timezone}
-                        onValueChange={(value) => setSystemSettings({ ...systemSettings, timezone: value })}
+                        onValueChange={(value) =>
+                          setSystemSettings({
+                            ...systemSettings,
+                            timezone: value,
+                          })
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="America/Mexico_City">Ciudad de México</SelectItem>
+                          <SelectItem value="America/Mexico_City">
+                            Ciudad de México
+                          </SelectItem>
                           <SelectItem value="America/Cancun">Cancún</SelectItem>
-                          <SelectItem value="America/Tijuana">Tijuana</SelectItem>
+                          <SelectItem value="America/Tijuana">
+                            Tijuana
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -181,7 +240,12 @@ export default function SistemaPage() {
                       <Label htmlFor="language">Idioma</Label>
                       <Select
                         value={systemSettings.language}
-                        onValueChange={(value) => setSystemSettings({ ...systemSettings, language: value })}
+                        onValueChange={(value) =>
+                          setSystemSettings({
+                            ...systemSettings,
+                            language: value,
+                          })
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -199,7 +263,12 @@ export default function SistemaPage() {
                       id="taxRate"
                       type="number"
                       value={systemSettings.taxRate}
-                      onChange={(e) => setSystemSettings({ ...systemSettings, taxRate: e.target.value })}
+                      onChange={(e) =>
+                        setSystemSettings({
+                          ...systemSettings,
+                          taxRate: e.target.value,
+                        })
+                      }
                       className="w-32"
                     />
                   </div>
@@ -214,7 +283,9 @@ export default function SistemaPage() {
                     <Clock className="w-5 h-5" />
                     Horarios de Operación
                   </CardTitle>
-                  <CardDescription>Define los horarios de atención del restaurante</CardDescription>
+                  <CardDescription>
+                    Define los horarios de atención del restaurante
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -249,35 +320,53 @@ export default function SistemaPage() {
                     <Bell className="w-5 h-5" />
                     Configuración de Notificaciones
                   </CardTitle>
-                  <CardDescription>Administra las alertas y notificaciones del sistema</CardDescription>
+                  <CardDescription>
+                    Administra las alertas y notificaciones del sistema
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label className="text-sm font-medium">Nuevas órdenes</Label>
-                        <p className="text-sm text-gray-600">Notificar cuando llegue una nueva orden</p>
+                        <Label className="text-sm font-medium">
+                          Nuevas órdenes
+                        </Label>
+                        <p className="text-sm text-gray-600">
+                          Notificar cuando llegue una nueva orden
+                        </p>
                       </div>
                       <Switch defaultChecked />
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label className="text-sm font-medium">Inventario bajo</Label>
-                        <p className="text-sm text-gray-600">Alertar cuando los productos estén por agotarse</p>
+                        <Label className="text-sm font-medium">
+                          Inventario bajo
+                        </Label>
+                        <p className="text-sm text-gray-600">
+                          Alertar cuando los productos estén por agotarse
+                        </p>
                       </div>
                       <Switch defaultChecked />
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label className="text-sm font-medium">Corte de caja</Label>
-                        <p className="text-sm text-gray-600">Recordatorio para realizar el corte diario</p>
+                        <Label className="text-sm font-medium">
+                          Corte de caja
+                        </Label>
+                        <p className="text-sm text-gray-600">
+                          Recordatorio para realizar el corte diario
+                        </p>
                       </div>
                       <Switch defaultChecked />
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label className="text-sm font-medium">Reportes automáticos</Label>
-                        <p className="text-sm text-gray-600">Enviar reportes semanales por email</p>
+                        <Label className="text-sm font-medium">
+                          Reportes automáticos
+                        </Label>
+                        <p className="text-sm text-gray-600">
+                          Enviar reportes semanales por email
+                        </p>
                       </div>
                       <Switch />
                     </div>
@@ -296,7 +385,9 @@ export default function SistemaPage() {
                     <Wifi className="w-5 h-5" />
                     Integraciones Externas
                   </CardTitle>
-                  <CardDescription>Conecta con servicios externos y dispositivos</CardDescription>
+                  <CardDescription>
+                    Conecta con servicios externos y dispositivos
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -305,31 +396,47 @@ export default function SistemaPage() {
                         <div className="flex items-center gap-3">
                           <Printer className="w-8 h-8 text-gray-600" />
                           <div>
-                            <h4 className="font-medium">Impresora de Tickets</h4>
-                            <p className="text-sm text-gray-600">Epson TM-T20III</p>
+                            <h4 className="font-medium">
+                              Impresora de Tickets
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              Epson TM-T20III
+                            </p>
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-green-600 border-green-200">
+                        <Badge
+                          variant="outline"
+                          className="text-green-600 border-green-200"
+                        >
                           Conectada
                         </Badge>
                       </div>
-                      <Button variant="outline" size="sm" className="w-full bg-transparent">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full bg-transparent"
+                      >
                         Configurar
                       </Button>
                     </div>
-
                     <div className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <DollarSign className="w-8 h-8 text-gray-600" />
                           <div>
                             <h4 className="font-medium">Terminal de Pago</h4>
-                            <p className="text-sm text-gray-600">No configurada</p>
+                            <p className="text-sm text-gray-600">
+                              No configurada
+                            </p>
                           </div>
                         </div>
                         <Badge variant="secondary">Desconectada</Badge>
                       </div>
-                      <Button variant="outline" size="sm" className="w-full bg-transparent">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full bg-transparent"
+                      >
                         Conectar
                       </Button>
                     </div>
@@ -348,7 +455,9 @@ export default function SistemaPage() {
                     <Database className="w-5 h-5" />
                     Respaldo y Restauración
                   </CardTitle>
-                  <CardDescription>Administra las copias de seguridad de tu información</CardDescription>
+                  <CardDescription>
+                    Administra las copias de seguridad de tu información
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -377,10 +486,14 @@ export default function SistemaPage() {
                     <div>
                       <h4 className="font-medium mb-3">Último Respaldo</h4>
                       <div className="bg-gray-50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-600">Fecha: 15 de Diciembre, 2024</p>
+                        <p className="text-sm text-gray-600">
+                          Fecha: 15 de Septiembre, 2025
+                        </p>
                         <p className="text-sm text-gray-600">Hora: 02:00 AM</p>
                         <p className="text-sm text-gray-600">Tamaño: 45.2 MB</p>
-                        <Badge className="mt-2 bg-green-100 text-green-700">Exitoso</Badge>
+                        <Badge className="mt-2 bg-green-100 text-green-700">
+                          Exitoso
+                        </Badge>
                       </div>
                     </div>
                   </div>
@@ -398,5 +511,5 @@ export default function SistemaPage() {
         </Tabs>
       </SlideIn>
     </div>
-  )
+  );
 }

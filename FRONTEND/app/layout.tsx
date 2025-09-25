@@ -3,8 +3,8 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Analytics } from "@vercel/analytics/next";
 import { Suspense } from "react";
-import { PageTransition } from "@/components/page-transition";
 import { PageLoader } from "@/components/page-loader";
+import { AuthProvider } from "@/contexts/AuthContext"; // Importar AuthProvider
 import "./globals.css";
 
 export default function RootLayout({
@@ -17,11 +17,9 @@ export default function RootLayout({
       <body
         className={`font-sans ${GeistSans.variable} ${GeistMono.variable} antialiased`}
       >
-        <PageTransition>
-          <Suspense fallback={<PageLoader text="Cargando página..." />}>
-            {children}
-          </Suspense>
-        </PageTransition>
+        <Suspense fallback={<PageLoader text="Cargando aplicación..." />}>
+          <AuthProvider>{children}</AuthProvider>
+        </Suspense>
         <Analytics />
       </body>
     </html>
@@ -29,5 +27,6 @@ export default function RootLayout({
 }
 
 export const metadata = {
-  generator: "v0.app",
+  title: "KantarEs",
+  description: "Sistema de Gestión para Restaurantes",
 };

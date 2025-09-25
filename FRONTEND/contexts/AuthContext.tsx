@@ -54,24 +54,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // --- LÓGICA DE LOGIN FINAL: SIMPLE Y ROBUSTA ---
+  // --- LÓGICA DE LOGIN CORREGIDA ---
   const login = useCallback(
     (data: AuthData) => {
-      // 1. Mostramos el loader
-      setIsLoggingIn(true);
-
-      // 2. Inmediatamente guardamos datos y empezamos la navegación en segundo plano
+      // 1. Guardamos los datos de autenticación inmediatamente.
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       setAuth(data);
-      router.push("/dashboard");
 
-      // 3. Forzamos al loader a estar visible por 2.8 segundos.
-      // Después de este tiempo, la animación se habrá completado y el dashboard
-      // (que es rápido) ya estará cargado detrás.
+      // 2. Mostramos el loader de inicio de sesión.
+      setIsLoggingIn(true);
+
+      // 3. Esperamos a que la animación del loader se muestre
+      //    y luego redirigimos.
       setTimeout(() => {
-        setIsLoggingIn(false);
-      }, 2800); // 2.5s para la animación + 0.3s de margen de seguridad
+        router.push("/dashboard");
+        // Mantenemos el loader visible un poco más para cubrir la carga de la página.
+        setTimeout(() => {
+          setIsLoggingIn(false);
+        }, 300); // 0.3s de margen
+      }, 2500); // 2.5s para la animación
     },
     [router]
   );

@@ -1,10 +1,12 @@
+// app/dashboard/layout.tsx (VERSIÓN FINAL)
 "use client";
 
 import type React from "react";
 import { Sidebar } from "@/components/sidebar";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { PageLoader } from "@/components/page-loader";
+import { motion } from "framer-motion";
 
 export default function DashboardLayout({
   children,
@@ -15,80 +17,67 @@ export default function DashboardLayout({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
+
+  // CORRECCIÓN DEFINITIVA: useEffect con array vacío []
+  useEffect(() => {
+    // Esta lógica ahora se ejecutará SÓLO UNA VEZ cuando el layout se monte
+    // por primera vez en el lado del cliente.
+    const token = localStorage.getItem("token");
+    const auth = localStorage.getItem("auth");
+
+    if (!token || !auth) {
+      // Si no hay token, no necesitamos hacer nada más, redirigir.
+      router.push("/login");
+      // No actualizamos estado aquí para evitar renders innecesarios antes de la redirección.
+      return;
+    }
+
+    // Si hay token, nos autenticamos y terminamos la carga.
+    setIsAuthenticated(true);
+    setIsLoading(false);
+  }, []); // El array vacío es la clave para evitar que se re-ejecute en cada navegación.
 
   useEffect(() => {
-    // Verificación de autenticación más simple
-    const checkAuth = () => {
-      // No usar async/await aquí para evitar problemas de timing
-      const token = localStorage.getItem("token");
-      const auth = localStorage.getItem("auth");
-
-      console.log("Dashboard Layout - Verificando:", {
-        hasToken: !!token,
-        hasAuth: !!auth,
-      });
-
-      if (!token || !auth) {
-        console.log("Dashboard: No hay autenticación, redirigiendo a login");
-        router.push("/login");
-        return;
-      }
-
-      try {
-        const authData = JSON.parse(auth);
-        console.log("Usuario autenticado:", authData.username);
-        setIsAuthenticated(true);
-        setIsLoading(false);
-      } catch (e) {
-        console.error("Error parseando auth:", e);
-        localStorage.removeItem("token");
-        localStorage.removeItem("auth");
-        localStorage.removeItem("user");
-        router.push("/login");
-      }
-    };
-
-    // Verificar inmediatamente
-    checkAuth();
-  }, [router]);
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
+    // Este efecto para el sidebar está correcto y no necesita cambios.
     const handleSidebarToggle = (event: CustomEvent) => {
       setCollapsed(event.detail.collapsed);
     };
-
     window.addEventListener(
       "sidebarToggle",
       handleSidebarToggle as EventListener
     );
-
     return () =>
       window.removeEventListener(
         "sidebarToggle",
         handleSidebarToggle as EventListener
       );
-  }, [isAuthenticated]);
+  }, []);
 
   if (isLoading) {
     return <PageLoader text="Verificando sesión..." />;
   }
 
   if (!isAuthenticated) {
-    return null; // No mostrar nada mientras redirige
+    // Este es un estado de seguridad mientras ocurre la redirección.
+    // Muestra el loader en lugar de null para una mejor UX.
+    return <PageLoader text="Redirigiendo..." />;
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Sidebar />
-      <main
+      <motion.main
+        key={pathname}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4, ease: "easeInOut" }}
         className={`transition-all duration-300 ${
           collapsed ? "ml-20" : "ml-72"
         } p-6`}
       >
         <div className="w-full">{children}</div>
-      </main>
+      </motion.main>
     </div>
   );
 }

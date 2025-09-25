@@ -5,6 +5,9 @@ import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
+  register(registerDto: any) {
+    throw new Error('Method not implemented.');
+  }
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -32,10 +35,10 @@ export class AuthService {
   }
 
   async login(user: any) {
-    const payload = { 
-      sub: user.id_usuario, 
+    const payload = {
+      sub: user.id_usuario,
       username: user.username,
-      rol: user.roles.nombre 
+      rol: user.roles.nombre,
     };
 
     return {

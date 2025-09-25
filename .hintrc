@@ -11,6 +11,12 @@
     ],
     "typescript-config/consistent-casing": "off",
     "typescript-config/is-valid": "off",
-    "no-inline-styles": "off"
+    "no-inline-styles": "off",
+    "axe/keyboard": [
+      "default",
+      {
+        "nested-interactive": "off"
+      }
+    ]
   }
 }

@@ -1,3 +1,4 @@
+// FRONTEND/contexts/AuthContext.tsx
 "use client";
 
 import React, {
@@ -11,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { FullScreenLoader } from "@/components/full-screen-loader";
 
-interface AuthData {
+export interface AuthData {
   token: string;
   user: {
     id: number;
@@ -38,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -54,24 +56,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // --- LÓGICA DE LOGIN FINAL: SIMPLE Y ROBUSTA ---
   const login = useCallback(
     (data: AuthData) => {
-      // 1. Mostramos el loader
       setIsLoggingIn(true);
+      setLoginSuccess(false);
 
-      // 2. Inmediatamente guardamos datos y empezamos la navegación en segundo plano
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       setAuth(data);
-      router.push("/dashboard");
 
-      // 3. Forzamos al loader a estar visible por 2.8 segundos.
-      // Después de este tiempo, la animación se habrá completado y el dashboard
-      // (que es rápido) ya estará cargado detrás.
+      // 1. Mostrar la rueda de carga por 1.5 segundos. (SIN CAMBIOS)
+      setTimeout(() => {
+        setLoginSuccess(true);
+      }, 1500);
+
+      // --- INICIO DE LA CORRECCIÓN ---
+      // 2. Ocultar el loader después de 4 segundos en total.
+      //    (1.5s de carga + 2.5s de éxito).
       setTimeout(() => {
         setIsLoggingIn(false);
-      }, 2800); // 2.5s para la animación + 0.3s de margen de seguridad
+      }, 4000); // Antes 3000ms, ahora 4000ms
+
+      // 3. NAVEGAR a la nueva página DESPUÉS de que la animación
+      //    del loader se haya completado.
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 4300); // Antes 3300ms, ahora 4300ms
+      // --- FIN DE LA CORRECCIÓN ---
     },
     [router]
   );
@@ -82,7 +93,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       setAuth(null);
-      window.location.href = "/";
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 500);
     }, 2500);
   }, []);
 
@@ -91,9 +104,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{ auth, isLoading, isLoggingIn, isLoggingOut, login, logout }}
     >
       <AnimatePresence>
-        {isLoggingIn && <FullScreenLoader text="Iniciando Sesión..." />}
+        {isLoggingIn && (
+          <FullScreenLoader
+            text="Iniciando Sesión..."
+            isSuccess={loginSuccess}
+          />
+        )}
         {isLoggingOut && (
-          <FullScreenLoader title="Hasta pronto" text="Cerrando Sesión..." />
+          <FullScreenLoader title="¡Hasta pronto!" text="Cerrando Sesión..." />
         )}
       </AnimatePresence>
 

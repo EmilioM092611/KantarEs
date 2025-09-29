@@ -386,8 +386,9 @@ export default function LoginPage() {
               </motion.div>
 
               <motion.div variants={itemVariants}>
+                <br />
                 <p className="text-red-50 text-lg leading-relaxed opacity-90 max-w-md mx-auto">
-                  Bienvenido de vuelta a nuestro sistema de gestión
+                  Bienvenido a nuestro sistema de gestión y control
                 </p>
               </motion.div>
               <motion.div variants={itemVariants} className="mt-12">

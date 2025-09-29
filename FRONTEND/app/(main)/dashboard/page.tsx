@@ -60,8 +60,8 @@ const itemVariants = {
     transition: {
       // Esta es la clave: una transición de tipo 'spring'.
       type: "spring",
-      damping: 25, // Controla la "fricción". Más alto = menos rebote, cambio de 15 q 25.
-      stiffness: 300, // Controla la "fuerza" del resorte. Más alto = más rápido, cambio de 200 a 300.
+      damping: 45, // Controla la "fricción". Más alto = menos rebote, cambio de 15 q 25.
+      stiffness: 500, // Controla la "fuerza" del resorte. Más alto = más rápido, cambio de 200 a 300.
     },
   },
 };

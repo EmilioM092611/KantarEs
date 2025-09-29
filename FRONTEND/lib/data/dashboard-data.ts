@@ -97,7 +97,7 @@ export const modulesSections = [
       },
       {
         key: "menu",
-        title: "Menu",
+        title: "Menú",
         description: "Gestión de artículos",
         icon: Menu,
         tokenKey: "menu",

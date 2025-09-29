@@ -25,7 +25,8 @@
     "user:reset-password": "ts-node src/scripts/user-management.ts reset-password",
     "user:list": "ts-node src/scripts/user-management.ts list",
     "user:management": "ts-node src/scripts/user-management.ts",
-    "user:create-admin": "ts-node src/scripts/user-management.ts create-admin"
+    "user:create-admin": "ts-node src/scripts/user-management.ts create-admin",
+    "seed:mesas": "ts-node prisma/seed-mesas.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

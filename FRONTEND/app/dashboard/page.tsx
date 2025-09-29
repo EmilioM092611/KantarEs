@@ -30,7 +30,46 @@ import { AnimatedCounter } from "@/components/dashboard/AnimatedCounter";
 import { ModuleCard } from "@/components/dashboard/ModuleCard";
 import { useAuth } from "@/contexts/AuthContext";
 
+// --- INICIO DE LA MEJORA DE SUAVIDAD (VERSIÓN FINAL) ---
+
+// Variante para el contenedor principal.
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      // Reducimos aún más el escalonamiento para una cascada más rápida.
+      staggerChildren: 0.06,
+    },
+  },
+};
+
+// Variante para cada bloque, ahora con animación de tipo 'spring'.
+const itemVariants = {
+  hidden: {
+    opacity: 0,
+    scale: 0.9, // Empezamos un poco más pequeño para un 'pop' más notorio.
+    y: 20, // Añadimos una posición inicial 20px más abajo.
+    filter: "blur(8px)",
+  },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0, // La posición final es 0.
+    filter: "blur(0px)",
+    transition: {
+      // Esta es la clave: una transición de tipo 'spring'.
+      type: "spring",
+      damping: 25, // Controla la "fricción". Más alto = menos rebote, cambio de 15 q 25.
+      stiffness: 300, // Controla la "fuerza" del resorte. Más alto = más rápido, cambio de 200 a 300.
+    },
+  },
+};
+
+// --- FIN DE LA MEJORA DE SUAVIDAD ---
+
 function useDashboardState(debouncedSearchTerm: string) {
+  // ... (El resto de este hook no necesita cambios)
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -65,14 +104,14 @@ function useDashboardState(debouncedSearchTerm: string) {
       .filter((s) => s.modules.length > 0);
   }, [debouncedSearchTerm]);
 
-  return { now, currentDate, currentTime, filteredModulesSections };
+  return { currentDate, currentTime, filteredModulesSections };
 }
 
 export default function DashboardPage() {
+  // ... (El resto del componente no necesita cambios)
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const router = useRouter();
-  // Esta línea vuelve a su estado original, solo extrayendo 'auth'
   const { auth } = useAuth();
   const [loadingModule, setLoadingModule] = useState<ModuleType | null>(null);
 
@@ -87,19 +126,15 @@ export default function DashboardPage() {
   const { currentDate, currentTime, filteredModulesSections } =
     useDashboardState(debouncedSearchTerm);
 
-  // Ya no hay ningún useEffect aquí para controlar la pantalla de carga.
-
   return (
     <motion.div
       className="space-y-8"
+      variants={containerVariants}
       initial="hidden"
       animate="visible"
-      transition={{ staggerChildren: 0.12 }}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
-        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
+        variants={itemVariants}
         className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
       >
         <div>
@@ -141,9 +176,7 @@ export default function DashboardPage() {
       </motion.div>
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
-        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
+        variants={itemVariants}
         className="relative h-96 rounded-2xl overflow-hidden shadow-2xl"
       >
         <div
@@ -155,9 +188,7 @@ export default function DashboardPage() {
       </motion.div>
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
-        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
+        variants={itemVariants}
         className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"
       >
         {metricsData.map((m) => (
@@ -173,7 +204,6 @@ export default function DashboardPage() {
             <div className="p-5 relative z-10">
               <div className="relative flex items-start justify-between">
                 <div>
-                  {/* --- CORRECCIÓN DE ESTILO AQUÍ --- */}
                   <p
                     className="text-sm font-medium text-white"
                     style={{ textShadow: "0 1px 3px rgba(0,0,0,0.4)" }}
@@ -189,7 +219,6 @@ export default function DashboardPage() {
                       isCurrency={m.isCurrency}
                     />
                   </h3>
-                  {/* --- Y CORRECCIÓN DE ESTILO AQUÍ --- */}
                   <p
                     className={`mt-2 text-sm font-bold ${
                       m.changeType === "positive"
@@ -238,12 +267,7 @@ export default function DashboardPage() {
       </motion.div>
 
       {filteredModulesSections.map((section) => (
-        <motion.div
-          key={section.title}
-          initial={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
-          animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-        >
+        <motion.div key={section.title} variants={itemVariants}>
           <h2 className="text-2xl font-semibold text-gray-800 mb-6">
             {section.title}
           </h2>
@@ -276,9 +300,7 @@ export default function DashboardPage() {
       </AnimatePresence>
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
-        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
+        variants={itemVariants}
         className="grid grid-cols-1 xl:grid-cols-2 gap-6"
       >
         <Card className="rounded-2xl shadow-2xl bg-white/60 backdrop-blur-xl border border-white/20">

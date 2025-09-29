@@ -27,8 +27,8 @@ import {
   MapPin,
   Printer,
 } from "lucide-react";
+import { useLoading } from "@/contexts/LoadingContext";
 
-// (El array menuSections no cambia, lo he omitido aquí para brevedad)
 const menuSections = [
   {
     title: "Dashboard",
@@ -80,27 +80,23 @@ const menuSections = [
 ];
 
 const sidebarVariants = {
-  expanded: { width: "18rem" }, // w-72
-  collapsed: { width: "5rem" }, // w-20
+  expanded: { width: "18rem" },
+  collapsed: { width: "5rem" },
 };
-
 const contentVariants = {
   hidden: { opacity: 0, x: -10 },
   visible: { opacity: 1, x: 0 },
 };
-
 const navItemsContainerVariants = {
   hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.05,
-    },
-  },
+  visible: { transition: { staggerChildren: 0.05 } },
 };
+
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const { auth } = useAuth();
+  const { setIsLoading } = useLoading();
 
   const toggleSidebar = () => {
     const newCollapsed = !collapsed;
@@ -124,9 +120,9 @@ export function Sidebar() {
       initial={false}
       animate={collapsed ? "collapsed" : "expanded"}
       transition={{ duration: 0.3, ease: "easeInOut" }}
-      className="fixed left-0 top-0 z-40 h-screen !bg-red-700 bg-gradient-to-b from-red-600 via-red-700 to-red-900 shadow-2xl flex flex-col"
+      // ESTA ES LA LÍNEA CORREGIDA: Sin 'fixed', 'left-0', 'top-0', 'z-40'
+      className="h-screen !bg-red-700 bg-gradient-to-b from-red-600 via-red-700 to-red-900 shadow-2xl flex flex-col flex-shrink-0"
     >
-      {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-red-500/30 flex-shrink-0">
         <AnimatePresence>
           {!collapsed && (
@@ -161,8 +157,6 @@ export function Sidebar() {
           )}
         </Button>
       </div>
-
-      {/* Navigation */}
       <div className="flex-1 py-4 px-2 overflow-hidden">
         <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-red-400/60 scrollbar-track-transparent hover:scrollbar-thumb-red-300/80 transition-colors">
           <motion.div
@@ -192,7 +186,14 @@ export function Sidebar() {
                     const isActive = pathname === item.href;
                     return (
                       <motion.div key={item.href} variants={contentVariants}>
-                        <Link href={item.href}>
+                        <Link
+                          href={item.href}
+                          onClick={() => {
+                            if (pathname !== item.href) {
+                              setIsLoading(true);
+                            }
+                          }}
+                        >
                           <div
                             className={cn(
                               "w-full flex items-center gap-3 h-12 px-4 rounded-xl transition-all cursor-pointer group",
@@ -227,8 +228,6 @@ export function Sidebar() {
           </motion.div>
         </div>
       </div>
-
-      {/* User Profile */}
       <div className="border-t border-red-500/30 p-4 flex-shrink-0">
         <div
           className={cn(

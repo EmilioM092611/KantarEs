@@ -1,3 +1,4 @@
+// ============== app.module.ts (ACTUALIZADO) ==============
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
@@ -8,10 +9,11 @@ import { UsuariosModule } from './usuarios/usuarios.module';
 import { ProductosModule } from './productos/productos.module';
 import { CategoriasModule } from './categorias/categorias.module';
 import { UnidadesModule } from './unidades/unidades.module';
+import { MesasModule } from './mesas/mesas.module'; // NUEVO
+import { SesionesMesaModule } from './sesiones-mesas/sesiones-mesas.module'; // NUEVO
 
 @Module({
   imports: [
-    // ConfigModule DEBE ir primero para que las variables de entorno estén disponibles
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
@@ -22,6 +24,8 @@ import { UnidadesModule } from './unidades/unidades.module';
     ProductosModule,
     CategoriasModule,
     UnidadesModule,
+    MesasModule, // NUEVO
+    SesionesMesaModule, // NUEVO
   ],
   controllers: [AppController],
   providers: [AppService],

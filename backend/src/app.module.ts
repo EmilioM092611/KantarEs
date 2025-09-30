@@ -11,6 +11,8 @@ import { CategoriasModule } from './categorias/categorias.module';
 import { UnidadesModule } from './unidades/unidades.module';
 import { MesasModule } from './mesas/mesas.module'; // NUEVO
 import { SesionesMesaModule } from './sesiones-mesas/sesiones-mesas.module'; // NUEVO
+import { OrdenesModule } from './ordenes/ordenes.module';
+import { OrdenDetalleModule } from './orden-detalle/orden-detalle.module';
 
 @Module({
   imports: [
@@ -26,6 +28,8 @@ import { SesionesMesaModule } from './sesiones-mesas/sesiones-mesas.module'; // 
     UnidadesModule,
     MesasModule, // NUEVO
     SesionesMesaModule, // NUEVO
+    OrdenesModule,
+    OrdenDetalleModule,
   ],
   controllers: [AppController],
   providers: [AppService],

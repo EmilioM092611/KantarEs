@@ -9,81 +9,67 @@ const LoadingContext = createContext<
   { setIsLoading: (loading: boolean) => void } | undefined
 >(undefined);
 
-// ==================================================================
-// ----- PANTALLA DE CARGA CON EFECTO NEÓN -----
-// ==================================================================
 function GlobalLoadingOverlay() {
-  const text = "Cargando...";
-  const letters = Array.from(text);
+  const baseText = "Cargando";
+  const dots = ["·", "·", "·"];
 
-  // Variantes para las letras (movimiento ondulante)
-  const letterVariants = {
-    initial: { y: "0%" },
-    animate: { y: "-40%" },
-  };
-
-  const letterTransition = {
-    duration: 0.5,
-    repeat: Infinity,
-    repeatType: "mirror" as const,
-    ease: "easeInOut",
-  };
+  const width = typeof window !== "undefined" ? window.innerWidth : 1200;
+  const height = typeof window !== "undefined" ? window.innerHeight : 800;
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.35 }}
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden"
     >
-      {/* Fondo con gradiente animado */}
+      {/* Fondo animado */}
       <motion.div
-        className="absolute inset-0 bg-gradient-to-br from-black via-red-900 to-black"
+        className="absolute inset-0 bg-gradient-to-br from-black via-red-900 to-black z-10"
         animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
         transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
         style={{ backgroundSize: "200% 200%" }}
       />
 
-      {/* Partículas suaves */}
-      {Array.from({ length: 20 }).map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-1 h-1 bg-red-500 rounded-full"
-          initial={{
-            x: Math.random() * window.innerWidth - window.innerWidth / 2,
-            y: Math.random() * window.innerHeight - window.innerHeight / 2,
-            opacity: 0,
-          }}
-          animate={{
-            y: [Math.random() * -200, Math.random() * 200],
-            opacity: [0, 1, 0],
-          }}
-          transition={{
-            duration: 4 + Math.random() * 4,
-            repeat: Infinity,
-            delay: i * 0.3,
-          }}
-        />
-      ))}
+      {/* Partículas flotando */}
+      {Array.from({ length: 20 }).map((_, i) => {
+        const left = Math.random() * width;
+        const top = Math.random() * height;
+        const travel = 100 + Math.random() * 300;
+        return (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 bg-red-500 rounded-full z-20 pointer-events-none"
+            initial={{ left, top, opacity: 0, scale: 0.8 }}
+            animate={{
+              top: [top, top - travel, top],
+              opacity: [0, 0.9, 0],
+              scale: [0.8, 1.2, 0.8],
+            }}
+            transition={{
+              duration: 4 + Math.random() * 4,
+              repeat: Infinity,
+              delay: i * 0.2,
+              ease: "easeInOut",
+            }}
+          />
+        );
+      })}
 
-      {/* Logo con efecto de pulso + neón */}
+      {/* Logo con efecto pulso */}
       <motion.div
-        className="relative w-48 h-48 rounded-full overflow-hidden border-4"
+        className="relative w-48 h-48 rounded-full overflow-hidden border-4 z-30"
         animate={{
-          scale: [1, 1.05, 1],
+          scale: [1, 1.06, 1],
           boxShadow: [
             "0 0 10px rgba(239,68,68,0.6), 0 0 20px rgba(239,68,68,0.4)",
-            "0 0 25px rgba(239,68,68,1), 0 0 50px rgba(239,68,68,0.9)",
+            "0 0 30px rgba(239,68,68,1), 0 0 60px rgba(239,68,68,0.9)",
             "0 0 10px rgba(239,68,68,0.6), 0 0 20px rgba(239,68,68,0.4)",
           ],
-          borderColor: ["#ef4444", "#f87171", "#ef4444"],
+          borderColor: ["#ef4444", "#f97373", "#ef4444"],
         }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
+        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
       >
         <Image
           src="/kantares-logo.jpg"
@@ -94,31 +80,27 @@ function GlobalLoadingOverlay() {
         />
       </motion.div>
 
-      {/* Texto animado con neón */}
-      <div className="mt-10 flex justify-center">
-        {letters.map((letter, index) => (
+      {/* Texto "Cargando..." con puntos coreografiados sin empalme */}
+      <div className="mt-10 flex justify-center z-30">
+        <span className="text-2xl font-semibold tracking-wide text-white">
+          {baseText}
+        </span>
+
+        {dots.map((dot, index) => (
           <motion.span
-            key={`${letter}-${index}`}
-            className="text-3xl font-extrabold tracking-wider text-white"
-            variants={letterVariants}
-            initial="initial"
-            animate="animate"
-            transition={{ ...letterTransition, delay: index * 0.12 }}
-            animate={{
-              textShadow: [
-                "0 0 5px rgba(255,255,255,0.6), 0 0 10px rgba(255,255,255,0.3)",
-                "0 0 20px rgba(255,255,255,1), 0 0 40px rgba(255,255,255,0.8)",
-                "0 0 5px rgba(255,255,255,0.6), 0 0 10px rgba(255,255,255,0.3)",
-              ],
-            }}
+            key={index}
+            className="text-2xl font-semibold tracking-wide text-white inline-block"
+            animate={{ y: ["0%", "-40%", "0%"] }}
             transition={{
-              duration: 2,
+              duration: 1.2, // 🔥 más lento y suave
               repeat: Infinity,
               ease: "easeInOut",
-              delay: index * 0.15,
+              delay: index * 0.6, // 🔥 coreografía escalonada
+              repeatDelay: 0.6, // 🔥 espera extra para que el 3er punto baje antes de reiniciar
             }}
+            style={{ marginLeft: "2px" }}
           >
-            {letter === " " ? "\u00A0" : letter}
+            {dot}
           </motion.span>
         ))}
       </div>

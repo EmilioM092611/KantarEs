@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import {
   Clock,
   MoreHorizontal,
   Utensils,
+  X,
+  ChevronRight,
 } from "lucide-react";
 
 import { useDebounce } from "@/hooks/useDebounce";
@@ -30,46 +32,30 @@ import { AnimatedCounter } from "@/components/dashboard/AnimatedCounter";
 import { ModuleCard } from "@/components/dashboard/ModuleCard";
 import { useAuth } from "@/contexts/AuthContext";
 
-// --- INICIO DE LA MEJORA DE SUAVIDAD (VERSIÓN FINAL) ---
+/* =======================  Animaciones bases  ======================= */
 
-// Variante para el contenedor principal.
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: {
-      // Reducimos aún más el escalonamiento para una cascada más rápida.
-      staggerChildren: 0.06,
-    },
+    transition: { staggerChildren: 0.06 },
   },
 };
 
-// Variante para cada bloque, ahora con animación de tipo 'spring'.
 const itemVariants = {
-  hidden: {
-    opacity: 0,
-    scale: 0.9, // Empezamos un poco más pequeño para un 'pop' más notorio.
-    y: 20, // Añadimos una posición inicial 20px más abajo.
-    filter: "blur(8px)",
-  },
+  hidden: { opacity: 0, scale: 0.9, y: 20, filter: "blur(8px)" },
   visible: {
     opacity: 1,
     scale: 1,
-    y: 0, // La posición final es 0.
+    y: 0,
     filter: "blur(0px)",
-    transition: {
-      // Esta es la clave: una transición de tipo 'spring'.
-      type: "spring",
-      damping: 45, // Controla la "fricción". Más alto = menos rebote, cambio de 15 q 25.
-      stiffness: 500, // Controla la "fuerza" del resorte. Más alto = más rápido, cambio de 200 a 300.
-    },
+    transition: { type: "spring", damping: 45, stiffness: 500 },
   },
 };
 
-// --- FIN DE LA MEJORA DE SUAVIDAD ---
+/* =======================  Estado derivado del dashboard  ======================= */
 
 function useDashboardState(debouncedSearchTerm: string) {
-  // ... (El resto de este hook no necesita cambios)
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -81,6 +67,7 @@ function useDashboardState(debouncedSearchTerm: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+
   const currentDate = now.toLocaleDateString("es-MX", {
     weekday: "long",
     year: "numeric",
@@ -90,15 +77,14 @@ function useDashboardState(debouncedSearchTerm: string) {
 
   const filteredModulesSections = useMemo(() => {
     if (!debouncedSearchTerm) return modulesSections;
+    const q = debouncedSearchTerm.toLowerCase();
     return modulesSections
       .map((section) => ({
         ...section,
         modules: section.modules.filter(
           (m) =>
-            m.title.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-            m.description
-              .toLowerCase()
-              .includes(debouncedSearchTerm.toLowerCase())
+            m.title.toLowerCase().includes(q) ||
+            m.description.toLowerCase().includes(q)
         ),
       }))
       .filter((s) => s.modules.length > 0);
@@ -107,8 +93,182 @@ function useDashboardState(debouncedSearchTerm: string) {
   return { currentDate, currentTime, filteredModulesSections };
 }
 
+/* =======================  Loader de módulo  ======================= */
+
+function ModuleLoadingOverlay({
+  module,
+  onCancel,
+}: {
+  module: ModuleType;
+  onCancel?: () => void;
+}) {
+  const shouldReduce = useReducedMotion();
+
+  const token = COLOR_TOKENS[module.tokenKey];
+  const from = token?.hexFrom ?? "#ff7aa2";
+  const to = token?.hexTo ?? "#ff3b6b";
+
+  const [progress, setProgress] = React.useState(8);
+  const tips = React.useMemo(
+    () => [
+      "Preparando panel…",
+      "Sincronizando datos…",
+      "Verificando permisos…",
+      "Aplicando preferencias…",
+    ],
+    []
+  );
+  const [tipIndex, setTipIndex] = React.useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setProgress((p) =>
+        p < 90 ? p + Math.max(1, Math.round((100 - p) / 18)) : p
+      );
+    }, 120);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(
+      () => setTipIndex((i) => (i + 1) % tips.length),
+      1400
+    );
+    return () => clearInterval(id);
+  }, [tips.length]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      role="status"
+      aria-busy="true"
+      aria-live="polite"
+    >
+      {/* Fondo a pantalla completa con el tema del módulo */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `radial-gradient(1200px 600px at 60% -10%, ${to}22, transparent 60%),
+                        radial-gradient(1000px 600px at 20% 110%, ${from}22, transparent 60%),
+                        linear-gradient(135deg, ${from}33, ${to}33)`,
+        }}
+      />
+      <div className="absolute inset-0 bg-black/35 backdrop-blur-sm" />
+
+      <motion.div
+        initial={{ scale: 0.98, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.98, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+        className="relative w-[min(94vw,780px)] rounded-3xl border border-white/20 bg-white/80 shadow-2xl backdrop-blur-xl px-6 py-7"
+        style={{
+          boxShadow: `0 30px 120px -24px ${to}55, 0 10px 30px -14px ${from}55`,
+        }}
+      >
+        {onCancel && (
+          <button
+            onClick={onCancel}
+            className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#ff3b6b]/40"
+            aria-label="Cancelar carga"
+          >
+            <X className="h-4 w-4 text-gray-600" />
+          </button>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3 pr-10">
+          <nav className="flex items-center gap-1 text-sm text-gray-500">
+            <span className="hover:text-gray-700">KantarEs</span>
+            <ChevronRight className="h-4 w-4 opacity-60" />
+            <span className="text-gray-700 font-medium truncate max-w-[40ch]">
+              {module.title}
+            </span>
+          </nav>
+          <span className="ml-auto shrink-0 tabular-nums text-sm font-semibold text-gray-700">
+            {progress}%
+          </span>
+        </div>
+
+        <div className="mt-4 flex items-center gap-4">
+          <motion.div
+            animate={
+              shouldReduce
+                ? {}
+                : {
+                    y: [-2, 2, -2],
+                    boxShadow: [
+                      `0 8px 22px ${to}35`,
+                      `0 14px 28px ${to}45`,
+                      `0 8px 22px ${to}35`,
+                    ],
+                  }
+            }
+            transition={
+              shouldReduce
+                ? {}
+                : { duration: 1.6, ease: "easeInOut", repeat: Infinity }
+            }
+            className="grid h-14 w-14 place-items-center rounded-2xl"
+            style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
+          >
+            <module.icon className="h-7 w-7 text-white" />
+          </motion.div>
+
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold text-gray-900 leading-tight">
+              Cargando <span className="text-gray-800">{module.title}</span>
+            </h2>
+            <p className="mt-0.5 text-sm text-gray-600">{tips[tipIndex]}</p>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-black/10">
+            <motion.div
+              className="h-2"
+              style={{ background: `linear-gradient(90deg, ${from}, ${to})` }}
+              initial={{ width: "6%" }}
+              animate={{ width: `${progress}%` }}
+              transition={{ ease: "easeOut", duration: 0.35 }}
+            />
+          </div>
+          <motion.div
+            aria-hidden="true"
+            className="relative -mt-2 h-2 w-full overflow-hidden rounded-full"
+          >
+            <motion.div
+              className="absolute inset-0 opacity-25"
+              style={{
+                background:
+                  "repeating-linear-gradient(135deg, #fff, #fff 8px, transparent 8px, transparent 16px)",
+                mixBlendMode: "overlay",
+              }}
+              animate={
+                shouldReduce ? {} : { backgroundPositionX: ["0%", "100%"] }
+              }
+              transition={
+                shouldReduce
+                  ? {}
+                  : { duration: 1.2, repeat: Infinity, ease: "linear" }
+              }
+            />
+          </motion.div>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
+          <span>Optimizado para conexiones locales</span>
+          <span>Si tarda demasiado, puedes cancelar.</span>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* =======================  Página  ======================= */
+
 export default function DashboardPage() {
-  // ... (El resto del componente no necesita cambios)
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const router = useRouter();
@@ -117,7 +277,9 @@ export default function DashboardPage() {
 
   const handleModuleClick = useCallback(
     (module: ModuleType) => {
+      // Muestra loader
       setLoadingModule(module);
+      // Da un respiro al overlay y navega. La cortina global vive en el layout.
       setTimeout(() => router.push(module.href), 300);
     },
     [router]
@@ -133,6 +295,7 @@ export default function DashboardPage() {
       initial="hidden"
       animate="visible"
     >
+      {/* Header */}
       <motion.div
         variants={itemVariants}
         className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
@@ -175,18 +338,20 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
+      {/* Hero/banner responsive */}
       <motion.div
         variants={itemVariants}
-        className="relative h-96 rounded-2xl overflow-hidden shadow-2xl"
+        className="relative aspect-[16/5] w-full rounded-3xl overflow-hidden shadow-2xl"
       >
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: 'url("/kantares-logo.jpg")' }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-black/30" />
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-red-600 via-red-500 to-red-600"></div>
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-red-600 via-red-500 to-red-600" />
       </motion.div>
 
+      {/* Métricas */}
       <motion.div
         variants={itemVariants}
         className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"
@@ -254,11 +419,7 @@ export default function DashboardPage() {
                   }}
                   initial={{ width: "0%" }}
                   animate={{ width: `${m.progress}%` }}
-                  transition={{
-                    duration: 1.5,
-                    ease: "easeOut",
-                    delay: 0.5,
-                  }}
+                  transition={{ duration: 1.5, ease: "easeOut", delay: 0.5 }}
                 />
               </div>
             </div>
@@ -266,6 +427,7 @@ export default function DashboardPage() {
         ))}
       </motion.div>
 
+      {/* Módulos */}
       {filteredModulesSections.map((section) => (
         <motion.div key={section.title} variants={itemVariants}>
           <h2 className="text-2xl font-semibold text-gray-800 mb-6">
@@ -284,6 +446,7 @@ export default function DashboardPage() {
         </motion.div>
       ))}
 
+      {/* Sin resultados */}
       <AnimatePresence>
         {filteredModulesSections.length === 0 && searchTerm && (
           <motion.div
@@ -299,6 +462,7 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
 
+      {/* Listas inferiores */}
       <motion.div
         variants={itemVariants}
         className="grid grid-cols-1 xl:grid-cols-2 gap-6"
@@ -350,6 +514,7 @@ export default function DashboardPage() {
             ))}
           </CardContent>
         </Card>
+
         <Card className="rounded-2xl shadow-2xl bg-white/60 backdrop-blur-xl border border-white/20">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -365,7 +530,7 @@ export default function DashboardPage() {
             {popularProducts.map((p, i) => (
               <div
                 key={i}
-                className="flex items-center justify-between p-3 rounded-lg hover:bg-black/5 transition-colors"
+                className="flex items-center justify-between p-3 rounded-lg hover:bg黑/5 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -392,32 +557,13 @@ export default function DashboardPage() {
         </Card>
       </motion.div>
 
+      {/* Overlay de carga por módulo */}
       <AnimatePresence>
         {loadingModule && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center backdrop-blur-sm"
-          >
-            <div className="bg-white/90 rounded-2xl p-6 shadow-2xl border border-gray-100">
-              <div className="flex items-center gap-3">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{
-                    ease: "linear",
-                    duration: 1.5,
-                    repeat: Infinity,
-                  }}
-                >
-                  <loadingModule.icon className="h-6 w-6 text-[#ff3b6b]" />
-                </motion.div>
-                <span className="text-gray-700 font-medium">
-                  Cargando {loadingModule.title}...
-                </span>
-              </div>
-            </div>
-          </motion.div>
+          <ModuleLoadingOverlay
+            module={loadingModule}
+            onCancel={() => setLoadingModule(null)}
+          />
         )}
       </AnimatePresence>
     </motion.div>

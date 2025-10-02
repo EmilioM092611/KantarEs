@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Eye, EyeOff, User, Lock, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, User, Lock, ArrowRight, Search } from "lucide-react";
 import {
   motion,
   AnimatePresence,
@@ -33,22 +33,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isHoveringCurve, setIsHoveringCurve] = useState(false);
 
-  // Múltiples controles para orquestar animaciones complejas
+  // Controles EXISTENTES (no tocar)
   const textControls = useAnimation();
   const animatedTextControls = useAnimation();
   const finalPulseControls = useAnimation();
 
   const handleAccessClick = async () => {
-    // 1. Oculta el texto estático inicial
     await textControls.start("hidden");
-
-    // 2. Anima las letras con la voltereta 3D en secuencia
     await animatedTextControls.start("visible");
-
-    // 3. Muestra de nuevo el texto original con un pulso de energía
     await finalPulseControls.start("pulse");
-
-    // 4. Continúa con la transición
     setShowLogin(true);
   };
 
@@ -102,19 +95,14 @@ export default function LoginPage() {
     },
   };
 
-  // Variantes para las letras con voltereta 3D
   const flipLetterVariants = {
-    hidden: {
-      opacity: 0,
-      rotateX: -90,
-      y: -20,
-    },
-    visible: (i) => ({
+    hidden: { opacity: 0, rotateX: -90, y: -20 },
+    visible: (i: number) => ({
       opacity: 1,
       rotateX: 0,
       y: 0,
       transition: {
-        delay: i * 0.08, // Efecto dominó
+        delay: i * 0.08,
         type: "spring",
         stiffness: 150,
         damping: 15,
@@ -122,11 +110,8 @@ export default function LoginPage() {
     }),
   };
 
-  // Variantes para el pulso de energía final
   const finalPulseVariants = {
-    initial: {
-      opacity: 0,
-    },
+    initial: { opacity: 0 },
     pulse: {
       opacity: 1,
       scale: [1, 1.05, 1],
@@ -135,10 +120,7 @@ export default function LoginPage() {
         "brightness(175%) drop-shadow(0 0 20px rgba(255, 220, 220, 0.8))",
         "brightness(100%) drop-shadow(0 0 0 rgba(255, 255, 255, 0))",
       ],
-      transition: {
-        duration: 0.8,
-        ease: "easeInOut",
-      },
+      transition: { duration: 0.8, ease: "easeInOut" },
     },
   };
 
@@ -150,12 +132,14 @@ export default function LoginPage() {
     },
   };
 
-  const word = "KANTARES";
+  const word = "KantarEs";
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-black">
+      {/* ====== FONDOS EXISTENTES (NO se tocan animaciones) ====== */}
       <AnimatePresence>
         {!showLogin && (
+          // WELCOME ONLY: Contenedor de la animación de salida del fondo
           <motion.div
             key="welcome-bg"
             className="absolute inset-0 z-0"
@@ -163,40 +147,14 @@ export default function LoginPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, transition: { duration: 1.0, delay: 1.0 } }}
           >
-            <svg className="absolute w-0 h-0">
-              <defs>
-                <filter id="noise">
-                  <feTurbulence
-                    type="fractalNoise"
-                    baseFrequency="0.8"
-                    numOctaves="4"
-                    stitchTiles="stitch"
-                  />
-                </filter>
-              </defs>
-            </svg>
-            <motion.div
-              className="absolute top-[-100px] left-[-100px] w-[500px] h-[500px] bg-red-900/35 rounded-full"
-              style={{ filter: "blur(120px)" }}
-              animate={{
-                rotate: 360,
-                transition: { duration: 40, repeat: Infinity, ease: "linear" },
-              }}
-            />
-            <motion.div
-              className="absolute bottom-[-150px] right-[-150px] w-[400px] h-[400px] bg-red-500/20 rounded-full"
-              style={{ filter: "blur(100px)" }}
-              animate={{
-                rotate: -360,
-                transition: { duration: 55, repeat: Infinity, ease: "linear" },
-              }}
-            />
+            {/* WELCOME ONLY: Capa final que usa la imagen como fondo */}
             <div
-              className="absolute inset-0 w-full h-full"
-              style={{ filter: "url(#noise)", opacity: 0.15 }}
-            ></div>
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: "url(/Fondo.png)" }}
+            />
           </motion.div>
         )}
+
         {showLogin && (
           <motion.div
             key="login-bg"
@@ -210,6 +168,7 @@ export default function LoginPage() {
               className="absolute inset-0"
               style={{ x: bgTranslateX, y: bgTranslateY }}
             >
+              {/* fondo para la vista de login (igual que tenías) */}
               <svg
                 className="absolute inset-0 w-full h-full"
                 viewBox="0 0 1200 800"
@@ -315,11 +274,13 @@ export default function LoginPage() {
         )}
       </AnimatePresence>
 
+      {/* ====== CONTENIDO ====== */}
       <AnimatePresence>
         {!showLogin ? (
+          // ================= WELCOME (DISEÑO NUEVO DEL PROTOTIPO) =================
           <motion.div
             key="welcome"
-            className="absolute inset-0 flex flex-col items-center justify-center z-20 text-center text-white p-8"
+            className="absolute inset-0 z-20 text-white"
             initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}
             exit={{
@@ -327,24 +288,37 @@ export default function LoginPage() {
               transition: { duration: 1.0, ease: "easeInOut" },
             }}
           >
+            {/* HERO centrado */}
             <motion.div
               variants={containerVariants}
               initial="hidden"
               animate="visible"
+              className="min-h-screen flex flex-col items-center justify-center text-center px-6"
             >
-              <motion.div variants={itemVariants}>
+              {/* Logo con efecto de aro neón */}
+              <motion.div
+                variants={itemVariants}
+                className="relative w-40 h-40 md:w-48 md:h-48 mb-8"
+              >
+                {/* Halo exterior (el "glow") */}
+                <div className="absolute inset-0 rounded-full bg-red-600/50 blur-2xl" />
+                {/* Anillo de neón principal */}
+                <div className="absolute inset-0 rounded-full border-2 border-red-400" />
+                {/* Anillo de neón secundario (más sutil) */}
+                <div className="absolute -inset-2 rounded-full border border-red-500/30 blur-sm" />
+                {/* Imagen del logo (sin cambios) */}
                 <img
                   src="/kantares-logo.jpg"
                   alt="Kantares Logo"
-                  className="w-32 h-32 object-cover rounded-full mx-auto mb-6 shadow-2xl"
+                  className="relative w-full h-full object-cover rounded-full"
                 />
               </motion.div>
 
+              {/* Título con flip 3D + pulso (MISMAS animaciones) */}
               <motion.div
                 variants={itemVariants}
-                className="relative h-16 flex items-center justify-center"
+                className="relative h-20 flex items-center justify-center"
               >
-                {/* Contenedor para la nueva animación en 3D */}
                 <motion.div
                   className="absolute"
                   animate={animatedTextControls}
@@ -356,7 +330,7 @@ export default function LoginPage() {
                         key={index}
                         custom={index}
                         variants={flipLetterVariants}
-                        className="text-5xl font-bold text-white"
+                        className="text-[56px] md:text-[72px] font-extrabold leading-none tracking-wide text-[#f2e6db]"
                       >
                         {letter}
                       </motion.span>
@@ -364,45 +338,53 @@ export default function LoginPage() {
                   </div>
                 </motion.div>
 
-                {/* Texto original que se oculta y reaparece con el pulso */}
                 <motion.h1
-                  className="text-5xl font-bold bg-gradient-to-r from-white to-red-100 bg-clip-text text-transparent"
+                  className="text-[56px] md:text-[72px] font-extrabold leading-none tracking-wide text-[#f2e6db]"
                   initial={{ opacity: 1 }}
                   animate={textControls}
                   variants={{
                     hidden: { opacity: 0, transition: { duration: 0.1 } },
                   }}
                 >
-                  KANTARES
+                  KantarEs
                 </motion.h1>
                 <motion.h1
-                  className="absolute text-5xl font-bold bg-gradient-to-r from-white to-red-100 bg-clip-text text-transparent"
+                  className="absolute text-[56px] md:text-[72px] font-extrabold leading-none tracking-wide text-[#f2e6db]"
                   initial="initial"
                   animate={finalPulseControls}
                   variants={finalPulseVariants}
                 >
-                  KANTARES
+                  KantarEs
                 </motion.h1>
               </motion.div>
 
-              <motion.div variants={itemVariants}>
-                <br />
-                <p className="text-red-50 text-lg leading-relaxed opacity-90 max-w-md mx-auto">
-                  Bienvenido a nuestro sistema de gestión y control
-                </p>
-              </motion.div>
-              <motion.div variants={itemVariants} className="mt-12">
+              {/* Subtítulo */}
+              <motion.p
+                variants={itemVariants}
+                className="mt-3 text-base md:text-lg text-white/70 font-medium max-w-xl"
+              >
+                Sistema de administración y control
+              </motion.p>
+
+              {/* CTA pill */}
+              <motion.div variants={itemVariants} className="mt-10">
                 <Button
                   onClick={handleAccessClick}
-                  className="h-12 px-8 bg-red-600 hover:bg-red-700 text-white font-bold text-base rounded-xl transition-all duration-300 transform hover:scale-[1.05] active:scale-[0.99] shadow-lg hover:shadow-red-500/40 group relative overflow-hidden"
+                  className="h-12 md:h-14 px-10 md:px-12 rounded-full text-base md:text-lg font-bold
+                    bg-gradient-to-r from-red-800 to-red-600
+                    text-white
+                    shadow-[0_0_15px_rgba(239,68,68,0.3),inset_0_1px_1px_rgba(255,255,255,0.15)]
+                    hover:from-red-700 hover:to-red-500
+                    hover:shadow-[0_0_25px_rgba(239,68,68,0.45),inset_0_1px_1px_rgba(255,255,255,0.15)]
+                    transition-all duration-300 transform hover:scale-105 active:scale-100"
                 >
-                  <span className="absolute top-0 left-[-100%] w-full h-full bg-white/30 blur-sm transform -skew-x-45 group-hover:left-[150%] transition-all duration-700"></span>
                   Acceder al sistema
                 </Button>
               </motion.div>
             </motion.div>
           </motion.div>
         ) : (
+          // ================= LOGIN (SIN CAMBIOS) =================
           <div key="login" className="absolute inset-0">
             <motion.div
               className="absolute left-0 top-0 w-full lg:w-2/3 h-full flex items-center justify-center p-8 lg:p-16 z-30"
@@ -428,10 +410,10 @@ export default function LoginPage() {
                     />
                   </div>
                   <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-white to-red-100 bg-clip-text text-transparent">
-                    KANTARES
+                    KantarEs
                   </h1>
                   <p className="text-red-50 text-lg leading-relaxed opacity-90">
-                    Bienvenido de vuelta a nuestro sistema de gestión
+                    ¡Bienvenido de nuevo! Ingresa tus datos para acceder
                   </p>
                 </motion.div>
               </motion.div>
@@ -473,7 +455,7 @@ export default function LoginPage() {
                             Inicio de sesión
                           </h2>
                           <p className="text-gray-500 text-sm">
-                            Ingresa tus credenciales para continuar
+                            Ingresa los siguientes datos para continuar
                           </p>
                         </motion.div>
                         <form onSubmit={handleLogin} className="space-y-6">

@@ -139,7 +139,7 @@ export function Sidebar() {
                 <Utensils className="w-7 h-7 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold !text-white">KANTARES</h1>
+                <h1 className="text-xl font-bold !text-white">KantarEs</h1>
               </div>
             </motion.div>
           )}

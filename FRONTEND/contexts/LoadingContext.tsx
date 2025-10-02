@@ -92,11 +92,11 @@ function GlobalLoadingOverlay() {
             className="text-2xl font-semibold tracking-wide text-white inline-block"
             animate={{ y: ["0%", "-40%", "0%"] }}
             transition={{
-              duration: 1.2, // 🔥 más lento y suave
+              duration: 1.2,
               repeat: Infinity,
               ease: "easeInOut",
-              delay: index * 0.6, // 🔥 coreografía escalonada
-              repeatDelay: 0.6, // 🔥 espera extra para que el 3er punto baje antes de reiniciar
+              delay: index * 0.6,
+              repeatDelay: 0.6,
             }}
             style={{ marginLeft: "2px" }}
           >

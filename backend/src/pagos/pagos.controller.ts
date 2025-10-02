@@ -35,7 +35,7 @@ export class PagosController {
   constructor(private readonly pagosService: PagosService) {}
 
   @Post()
-  @Roles('Administrador', 'Gerente', 'Cajero')
+  @Roles('Administrador', 'Gerente', 'Cajero') //Roles de la BD
   @ApiOperation({ summary: 'Registrar un nuevo pago' })
   @ApiResponse({
     status: 201,

@@ -150,7 +150,7 @@ export default function LoginPage() {
             {/* WELCOME ONLY: Capa final que usa la imagen como fondo */}
             <div
               className="absolute inset-0 bg-cover bg-center"
-              style={{ backgroundImage: "url(/Fondo.png)" }}
+              style={{ backgroundImage: "url(/FondoF.png)" }}
             />
           </motion.div>
         )}
@@ -277,7 +277,7 @@ export default function LoginPage() {
       {/* ====== CONTENIDO ====== */}
       <AnimatePresence>
         {!showLogin ? (
-          // ================= WELCOME (DISEÑO NUEVO DEL PROTOTIPO) =================
+          // ================= WELCOME (DISEÑO NUEVO) =================
           <motion.div
             key="welcome"
             className="absolute inset-0 z-20 text-white"

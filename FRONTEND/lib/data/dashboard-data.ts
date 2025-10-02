@@ -27,7 +27,7 @@ export const metricsData = [
     progress: 60,
   },
   {
-    title: "Pedidos Hoy",
+    title: "Ordenes de hoy",
     value: "47",
     rawValue: 47,
     change: "↑ 12.5% más que ayer",
@@ -37,7 +37,7 @@ export const metricsData = [
     progress: 85,
   },
   {
-    title: "Ventas Hoy",
+    title: "Ventas de hoy",
     value: "MXN$2,340",
     rawValue: 2340,
     change: "↓ 3% menos que ayer",
@@ -51,7 +51,7 @@ export const metricsData = [
     title: "Personal Activo",
     value: "8",
     rawValue: 8,
-    change: "↑ 8.2% vs ayer",
+    change: "↑ 8.2% más que ayer",
     changeType: "positive",
     icon: UserCheck,
     tokenKey: "personalMetric",

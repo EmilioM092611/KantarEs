@@ -36,7 +36,7 @@ export class MetodosPagoController {
   constructor(private readonly metodosPagoService: MetodosPagoService) {}
 
   @Post()
-  @Roles('Administrador', 'Gerente')
+  @Roles('Administrador', 'Gerente') //Roles de la BD
   @ApiOperation({ summary: 'Crear un nuevo método de pago' })
   @ApiResponse({
     status: 201,

@@ -15,7 +15,7 @@ export class PrismaService
   async onModuleInit(): Promise<void> {
     await this.$connect();
     console.log('✅ Conexión a PostgreSQL (KantarEs_BD) establecida');
-    console.log('👤 Usuario admin disponible');
+    console.log('✅ Usuario admin disponible');
   }
 
   async onModuleDestroy(): Promise<void> {

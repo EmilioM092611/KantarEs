@@ -1,4 +1,3 @@
-// ============== app.module.ts (ACTUALIZADO) ==============
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
@@ -9,10 +8,12 @@ import { UsuariosModule } from './usuarios/usuarios.module';
 import { ProductosModule } from './productos/productos.module';
 import { CategoriasModule } from './categorias/categorias.module';
 import { UnidadesModule } from './unidades/unidades.module';
-import { MesasModule } from './mesas/mesas.module'; // NUEVO
-import { SesionesMesaModule } from './sesiones-mesas/sesiones-mesas.module'; // NUEVO
+import { MesasModule } from './mesas/mesas.module';
+import { SesionesMesaModule } from './sesiones-mesas/sesiones-mesas.module';
 import { OrdenesModule } from './ordenes/ordenes.module';
 import { OrdenDetalleModule } from './orden-detalle/orden-detalle.module';
+import { PagosModule } from './pagos/pagos.module';
+import { MetodosPagoModule } from './metodos-pago/metodos-pago.module';
 
 @Module({
   imports: [
@@ -26,10 +27,12 @@ import { OrdenDetalleModule } from './orden-detalle/orden-detalle.module';
     ProductosModule,
     CategoriasModule,
     UnidadesModule,
-    MesasModule, // NUEVO
-    SesionesMesaModule, // NUEVO
+    MesasModule,
+    SesionesMesaModule,
     OrdenesModule,
     OrdenDetalleModule,
+    PagosModule,
+    MetodosPagoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

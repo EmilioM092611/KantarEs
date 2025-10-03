@@ -16,9 +16,9 @@ import { CategoriasService } from './categorias.service';
 import { CreateCategoriaDto } from './dto/create-categoria.dto';
 import { UpdateCategoriaDto } from './dto/update-categoria.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 
-@ApiTags('categorias')
+@ApiTags('Categorias')
 @ApiBearerAuth('JWT-auth')
 @Controller('categorias')
 @UseGuards(JwtAuthGuard)
@@ -27,6 +27,7 @@ export class CategoriasController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Crear nueva categoria' })
   async create(@Body() createCategoriaDto: CreateCategoriaDto) {
     const categoria = await this.categoriasService.create(createCategoriaDto);
     return {
@@ -37,6 +38,7 @@ export class CategoriasController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Listar todas las categorias' })
   async findAll(@Query('activo') activo?: string) {
     const categorias = await this.categoriasService.findAll(
       activo === 'true' ? true : activo === 'false' ? false : undefined,
@@ -48,6 +50,7 @@ export class CategoriasController {
   }
 
   @Get('con-productos')
+  @ApiOperation({ summary: 'Obtener categorias con productos asociados' })
   async findAllWithProducts() {
     const categorias = await this.categoriasService.findAllWithProductCount();
     return {
@@ -57,6 +60,7 @@ export class CategoriasController {
   }
 
   @Get('menu')
+  @ApiOperation({ summary: 'Obtener categorias del menu' })
   async getForMenu() {
     const categorias = await this.categoriasService.getCategoriasMenu();
     return {
@@ -66,6 +70,7 @@ export class CategoriasController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Obtener categoria por ID' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     const categoria = await this.categoriasService.findOne(id);
     return {
@@ -75,6 +80,7 @@ export class CategoriasController {
   }
 
   @Get(':id/productos')
+  @ApiOperation({ summary: 'Obtener categoria por ID de producto' })
   async getProductos(@Param('id', ParseIntPipe) id: number) {
     const productos = await this.categoriasService.getProductosByCategoria(id);
     return {
@@ -84,6 +90,7 @@ export class CategoriasController {
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Actualizar categoria' })
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateCategoriaDto: UpdateCategoriaDto,
@@ -100,6 +107,7 @@ export class CategoriasController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Eliminar categoria' })
   async remove(@Param('id', ParseIntPipe) id: number) {
     await this.categoriasService.remove(id);
     return {
@@ -109,6 +117,7 @@ export class CategoriasController {
   }
 
   @Post(':id/activar')
+  @ApiOperation({ summary: 'Activar categoria' })
   async activar(@Param('id', ParseIntPipe) id: number) {
     const categoria = await this.categoriasService.activar(id);
     return {
@@ -119,6 +128,7 @@ export class CategoriasController {
   }
 
   @Post(':id/desactivar')
+  @ApiOperation({ summary: 'Desactivar categoria' })
   async desactivar(@Param('id', ParseIntPipe) id: number) {
     const categoria = await this.categoriasService.desactivar(id);
     return {
@@ -129,6 +139,7 @@ export class CategoriasController {
   }
 
   @Patch('reordenar')
+  @ApiOperation({ summary: 'Reordenar categorias' })
   async reordenar(
     @Body() body: { categorias: { id: number; orden: number }[] },
   ) {

@@ -17,9 +17,9 @@ import { CreateProductoDto } from './dto/create-producto.dto';
 import { UpdateProductoDto } from './dto/update-producto.dto';
 import { QueryProductosDto } from './dto/query-productos.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 
-@ApiTags('productos')
+@ApiTags('Productos')
 @ApiBearerAuth('JWT-auth')
 @Controller('productos')
 @UseGuards(JwtAuthGuard)
@@ -28,6 +28,7 @@ export class ProductosController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Crear nuevo producto' })
   async create(@Body() createProductoDto: CreateProductoDto) {
     const producto = await this.productosService.create(createProductoDto);
     return {
@@ -38,6 +39,7 @@ export class ProductosController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Listar todos los productos' })
   async findAll(@Query() query: QueryProductosDto) {
     const result = await this.productosService.findAll(query);
     return {
@@ -47,6 +49,7 @@ export class ProductosController {
   }
 
   @Get('activos')
+  @ApiOperation({ summary: 'Listar solo productos activos' })
   async findActivos(@Query() query: QueryProductosDto) {
     const result = await this.productosService.findActivos(query);
     return {
@@ -56,6 +59,7 @@ export class ProductosController {
   }
 
   @Get('buscar')
+  @ApiOperation({ summary: 'Buscar productos especificos' })
   async search(@Query('q') searchTerm: string) {
     const productos = await this.productosService.search(searchTerm);
     return {
@@ -65,6 +69,7 @@ export class ProductosController {
   }
 
   @Get('por-categoria/:categoriaId')
+  @ApiOperation({ summary: 'Buscar productos por categoría' })
   async findByCategoria(
     @Param('categoriaId', ParseIntPipe) categoriaId: number,
     @Query() query: QueryProductosDto,
@@ -80,6 +85,7 @@ export class ProductosController {
   }
 
   @Get('estadisticas')
+  @ApiOperation({ summary: 'Listar estadisticas de productos' })
   async getEstadisticas() {
     const stats = await this.productosService.getEstadisticas();
     return {
@@ -89,6 +95,7 @@ export class ProductosController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Obtener producto por ID' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     const producto = await this.productosService.findOne(id);
     return {
@@ -98,6 +105,7 @@ export class ProductosController {
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Actualizar producto' })
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateProductoDto: UpdateProductoDto,
@@ -111,6 +119,7 @@ export class ProductosController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Eliminar producto' })
   async remove(@Param('id', ParseIntPipe) id: number) {
     await this.productosService.remove(id);
     return {
@@ -120,6 +129,7 @@ export class ProductosController {
   }
 
   @Post(':id/activar')
+  @ApiOperation({ summary: 'Activar producto' })
   async activar(@Param('id', ParseIntPipe) id: number) {
     const producto = await this.productosService.activar(id);
     return {
@@ -130,6 +140,7 @@ export class ProductosController {
   }
 
   @Post(':id/desactivar')
+  @ApiOperation({ summary: 'Desactivar producto' })
   async desactivar(@Param('id', ParseIntPipe) id: number) {
     const producto = await this.productosService.desactivar(id);
     return {

@@ -23,7 +23,7 @@ import { QuerySesionesDto } from './dto/query-sesiones.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 
-@ApiTags('sesiones-mesa')
+@ApiTags('Sesiones-mesa')
 @ApiBearerAuth('JWT-auth')
 @Controller('sesiones-mesa')
 @UseGuards(JwtAuthGuard)

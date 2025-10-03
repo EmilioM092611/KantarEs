@@ -11,13 +11,13 @@ import {
   HttpStatus,
   HttpCode,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { UnidadesService } from './unidades.service';
 import { CreateUnidadDto } from './dto/create-unidad.dto';
 import { UpdateUnidadDto } from './dto/update-unidad.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@ApiTags('unidades')
+@ApiTags('Unidades')
 @ApiBearerAuth('JWT-auth')
 @Controller('unidades')
 @UseGuards(JwtAuthGuard)
@@ -25,6 +25,7 @@ export class UnidadesController {
   constructor(private readonly unidadesService: UnidadesService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Crear nueva unidad de medida' })
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createUnidadDto: CreateUnidadDto) {
     const unidad = await this.unidadesService.create(createUnidadDto);
@@ -36,6 +37,7 @@ export class UnidadesController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Listar todas las unidades' })
   async findAll() {
     const unidades = await this.unidadesService.findAll();
     return {
@@ -45,6 +47,7 @@ export class UnidadesController {
   }
 
   @Get('tipo/:tipo')
+  @ApiOperation({ summary: 'Obtener unidad por tipo' })
   async findByTipo(@Param('tipo') tipo: string) {
     const unidades = await this.unidadesService.findByTipo(tipo);
     return {
@@ -54,6 +57,7 @@ export class UnidadesController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Obtener unidad por ID' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     const unidad = await this.unidadesService.findOne(id);
     return {
@@ -63,6 +67,7 @@ export class UnidadesController {
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Actualizar unidad' })
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUnidadDto: UpdateUnidadDto,
@@ -76,6 +81,7 @@ export class UnidadesController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Eliminar unidad' })
   async remove(@Param('id', ParseIntPipe) id: number) {
     await this.unidadesService.remove(id);
     return {

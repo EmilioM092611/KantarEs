@@ -21,7 +21,7 @@ import { QueryMesasDto } from './dto/query-mesas.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 
-@ApiTags('mesas')
+@ApiTags('Mesas')
 @ApiBearerAuth('JWT-auth')
 @Controller('mesas')
 @UseGuards(JwtAuthGuard)

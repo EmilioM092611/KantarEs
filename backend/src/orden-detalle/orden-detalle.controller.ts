@@ -23,7 +23,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 
-@ApiTags('orden-detalle')
+@ApiTags('Orden-detalle')
 @ApiBearerAuth('JWT-auth')
 @Controller('orden-detalle')
 @UseGuards(JwtAuthGuard)

@@ -34,7 +34,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 
-@ApiTags('ordenes')
+@ApiTags('Ordenes')
 @ApiBearerAuth('JWT-auth')
 @Controller('ordenes')
 @UseGuards(JwtAuthGuard)

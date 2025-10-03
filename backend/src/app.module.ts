@@ -14,6 +14,9 @@ import { OrdenesModule } from './ordenes/ordenes.module';
 import { OrdenDetalleModule } from './orden-detalle/orden-detalle.module';
 import { PagosModule } from './pagos/pagos.module';
 import { MetodosPagoModule } from './metodos-pago/metodos-pago.module';
+import { TiposCorteModule } from './tipos-corte/tipos-corte.module';
+import { CortesCajaModule } from './cortes-caja/cortes-caja.module';
+import { InventarioModule } from './inventario/inventario.module';
 
 @Module({
   imports: [
@@ -33,6 +36,9 @@ import { MetodosPagoModule } from './metodos-pago/metodos-pago.module';
     OrdenDetalleModule,
     PagosModule,
     MetodosPagoModule,
+    TiposCorteModule,
+    CortesCajaModule,
+    InventarioModule,
   ],
   controllers: [AppController],
   providers: [AppService],

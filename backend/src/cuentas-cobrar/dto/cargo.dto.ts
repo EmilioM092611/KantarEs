@@ -1,6 +1,6 @@
-// cargo.dto.ts
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 export class CargoDto {
-  monto!: string | number;
-  referencia?: string;
-  id_orden?: number;
+  @IsNumber() monto!: number;
+  @IsOptional() @IsString() referencia?: string;
+  @IsOptional() id_orden?: number;
 }

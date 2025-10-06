@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/require-await */
 import { PacProvider } from './pac.provider';
 
 function randomUUID() {
@@ -11,10 +13,14 @@ function randomUUID() {
 export class NullPacProvider implements PacProvider {
   async timbrar(payload: any) {
     const uuid = randomUUID();
-    const xml = `<cfdi:Comprobante Serie="${payload.serie ?? ''}" Folio="${payload.folio ?? ''}" Total="${payload.total ?? 0}"><cfdi:Complemento><tfd:TimbreFiscalDigital UUID="${uuid}"/></cfdi:Complemento></cfdi:Comprobante>`;
+    const xml = `<cfdi:Comprobante Serie="${payload.serie ?? ''}" Folio="${payload.folio ?? ''}" Total="${payload.total ?? 0}">
+      <cfdi:Complemento><tfd:TimbreFiscalDigital UUID="${uuid}"/></cfdi:Complemento>
+    </cfdi:Comprobante>`;
     return { uuid, xml };
   }
+
   async cancelar(uuid: string) {
-    return { ok: true };
+    // Mock: siempre cancela ok
+    return { ok: true, acuse: '<acuse-mock />' };
   }
 }

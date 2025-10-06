@@ -22,6 +22,7 @@ import { MovimientosInventarioModule } from './movimientos-inventario/movimiento
 import { ProveedoresModule } from './proveedores/proveedores.module';
 import { PromocionesModule } from './promociones/promociones.module';
 import { HistorialPreciosModule } from './historial-precios/historial-precios.module';
+import { AuditoriaModule } from './auditoria/auditoria.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { HistorialPreciosModule } from './historial-precios/historial-precios.mo
     ProveedoresModule,
     PromocionesModule,
     HistorialPreciosModule,
+    AuditoriaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

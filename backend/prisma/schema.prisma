@@ -69,25 +69,29 @@ model cc_movimientos {
 }
 
 model cfdi_comprobantes {
-  id_cfdi         Int             @id @default(autoincrement())
-  id_orden        Int?
-  id_receptor     Int
-  tipo            String          @default("I") @db.Char(1)
-  serie           String?         @db.VarChar(10)
-  folio           String?         @db.VarChar(20)
-  uuid            String?         @db.VarChar(50)
-  estatus         String          @default("pendiente") @db.VarChar(12)
-  subtotal        Decimal?        @db.Decimal(14, 2)
-  impuestos       Json?
-  total           Decimal?        @db.Decimal(14, 2)
-  fecha_emision   DateTime        @default(now()) @db.Timestamptz(6)
-  xml             String?
-  pdf_url         String?
-  error_msg       String?
-  created_at      DateTime?       @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime?       @default(now()) @db.Timestamptz(6)
-  ordenes         ordenes?        @relation(fields: [id_orden], references: [id_orden], onDelete: NoAction)
-  cfdi_receptores cfdi_receptores @relation(fields: [id_receptor], references: [id_receptor], onDelete: NoAction)
+  id_cfdi            Int             @id @default(autoincrement())
+  id_orden           Int?
+  id_receptor        Int
+  tipo               String          @default("I") @db.Char(1)
+  serie              String?         @db.VarChar(10)
+  folio              String?         @db.VarChar(20)
+  uuid               String?         @db.VarChar(50)
+  estatus            String          @default("pendiente") @db.VarChar(12)
+  subtotal           Decimal?        @db.Decimal(14, 2)
+  impuestos          Json?
+  total              Decimal?        @db.Decimal(14, 2)
+  fecha_emision      DateTime        @default(now()) @db.Timestamptz(6)
+  xml                String?
+  pdf_url            String?
+  error_msg          String?
+  created_at         DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?       @default(now()) @db.Timestamptz(6)
+  fecha_cancelacion  DateTime?       @db.Timestamptz(6)
+  acuse_cancelacion  String?
+  motivo_cancelacion String?         @db.VarChar(2)
+  uuid_relacionado   String?         @db.VarChar(50)
+  ordenes            ordenes?        @relation(fields: [id_orden], references: [id_orden], onDelete: NoAction)
+  cfdi_receptores    cfdi_receptores @relation(fields: [id_receptor], references: [id_receptor], onDelete: NoAction)
 
   @@index([id_orden], map: "idx_cfdi_orden")
   @@index([id_receptor], map: "idx_cfdi_receptor")

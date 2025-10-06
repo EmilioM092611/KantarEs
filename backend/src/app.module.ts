@@ -1,7 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
@@ -32,12 +36,23 @@ import { ReportesModule } from './reportes/reportes.module';
 import { CuentasCobrarModule } from './cuentas-cobrar/cuentas-cobrar.module';
 import { CfdiModule } from './cfdi/cfdi.module';
 import { MotorPromocionesModule } from './motor-promociones/motor-promociones.module';
+import { HealthModule } from './health/health.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
     }),
+
+    // Rate limiting global
+    ThrottlerModule.forRoot([
+      {
+        ttl: Number(process.env.RATE_TTL ?? 60), // ventana en segundos
+        limit: Number(process.env.RATE_LIMIT ?? 100), // peticiones por ventana
+      },
+    ]),
+
     PrismaModule,
     AuthModule,
     UsuariosModule,
@@ -68,8 +83,13 @@ import { MotorPromocionesModule } from './motor-promociones/motor-promociones.mo
     CuentasCobrarModule,
     CfdiModule,
     MotorPromocionesModule,
+    HealthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Throttler guard global
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}

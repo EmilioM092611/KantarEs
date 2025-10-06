@@ -1,10 +1,19 @@
-// /src/common/dto/pagination.dto.ts
-import { IsIn, IsInt, IsOptional, IsPositive, Min } from 'class-validator';
-import { Type } from 'class-transformer';
-
+import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 export class PaginationDto {
-  @IsOptional() @Type(() => Number) @Min(0) skip = 0;
-  @IsOptional() @Type(() => Number) @IsInt() @IsPositive() take = 20;
-  @IsOptional() @IsIn(['asc', 'desc']) order: 'asc' | 'desc' = 'desc';
-  @IsOptional() sortBy = 'created_at';
+  @IsOptional() @IsInt() @Min(1) page?: number = 1;
+  @IsOptional() @IsInt() @Min(1) limit?: number = 20;
+  @IsOptional() @IsString() order?: string;
+}
+export function toPrismaPagination(q: PaginationDto) {
+  const take = Math.min(q.limit ?? 20, 100);
+  const page = q.page ?? 1;
+  const skip = (page - 1) * take;
+  let orderBy: any = undefined;
+  if (q.order) {
+    const [field, dir] = q.order.split(':');
+    orderBy = {
+      [field]: (dir ?? 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc',
+    };
+  }
+  return { skip, take, orderBy };
 }

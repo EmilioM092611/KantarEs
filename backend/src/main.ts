@@ -1,27 +1,28 @@
+/* eslint-disable @typescript-eslint/no-floating-promises */
+// src/main.ts
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+import helmet from 'helmet';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+export async function bootstrap() {
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
-  // Debug: Verificar que las variables de entorno se cargaron
-  console.log('=== Verificación de configuración ===');
-  console.log(
-    'JWT_SECRET cargado:',
-    process.env.JWT_SECRET ? '✅ SÍ' : '❌ NO',
-  );
-  console.log(
-    'DATABASE_URL:',
-    process.env.DATABASE_URL ? '✅ Configurada' : '❌ No configurada',
-  );
-  console.log('Entorno:', process.env.NODE_ENV || 'development');
+  // Seguridad
+  app.use(helmet());
 
-  // Habilitar CORS para el frontend
+  // CORS por ENV
+  const origins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((s) => s.trim())
+    : true;
   app.enableCors({
-    origin: 'http://localhost:3002',
+    origin: origins,
     credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders:
+      'Origin, X-Requested-With, Content-Type, Accept, Authorization',
   });
 
   // Validación global
@@ -30,33 +31,39 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      transformOptions: { enableImplicitConversion: true },
     }),
   );
 
-  // Configuración de Swagger
+  // Filtro Prisma → HTTP
+  app.useGlobalFilters(new PrismaExceptionFilter());
+
+  // ===== Swagger en /api =====
   const config = new DocumentBuilder()
     .setTitle('KantarEs API')
-    .setDescription('Sistema ERP para Restaurante KantarEs')
+    .setDescription('API REST de KantarEs')
     .setVersion('1.0')
     .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'JWT',
-        description: 'Ingresa el token JWT',
-        in: 'header',
-      },
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },
       'JWT-auth',
     )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('api', app, document, {
+    swaggerOptions: { persistAuthorization: true },
+    customSiteTitle: 'KantarEs API',
+  });
 
-  await app.listen(3000);
-  console.log(`🚀 Servidor corriendo en: http://localhost:3000`);
-  console.log(`📚 Documentación Swagger: http://localhost:3000/api`);
-  console.log('=================================');
+  const server: any = app.getHttpServer();
+  if (!server.listening) {
+    await app.listen(3000);
+    console.log(`🚀 Servidor corriendo en: http://localhost:3000`);
+    console.log(`📚 Documentación Swagger: http://localhost:3000/api`);
+    console.log('=================================');
+  }
 }
-bootstrap();
+
+if (require.main === module) {
+  bootstrap();
+}

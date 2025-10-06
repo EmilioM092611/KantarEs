@@ -19,6 +19,9 @@ import { CortesCajaModule } from './cortes-caja/cortes-caja.module';
 import { InventarioModule } from './inventario/inventario.module';
 import { ComprasModule } from './compras/compras.module';
 import { MovimientosInventarioModule } from './movimientos-inventario/movimientos-inventario.module';
+import { ProveedoresModule } from './proveedores/proveedores.module';
+import { PromocionesModule } from './promociones/promociones.module';
+import { HistorialPreciosModule } from './historial-precios/historial-precios.module';
 
 @Module({
   imports: [
@@ -43,6 +46,9 @@ import { MovimientosInventarioModule } from './movimientos-inventario/movimiento
     InventarioModule,
     ComprasModule,
     MovimientosInventarioModule,
+    ProveedoresModule,
+    PromocionesModule,
+    HistorialPreciosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

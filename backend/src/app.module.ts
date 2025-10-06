@@ -23,7 +23,15 @@ import { ProveedoresModule } from './proveedores/proveedores.module';
 import { PromocionesModule } from './promociones/promociones.module';
 import { HistorialPreciosModule } from './historial-precios/historial-precios.module';
 import { AuditoriaModule } from './auditoria/auditoria.module';
-
+import { KdsModule } from './kds/kds.module';
+import { TurnosCajaModule } from './turnos-caja/turnos-caja.module';
+import { CuentasDivididasModule } from './cuentas-divididas/cuentas-dividas.module';
+import { DevolucionesModule } from './devoluciones/devoluciones.module';
+import { MermasModule } from './mermas/mermas.module';
+import { ReportesModule } from './reportes/reportes.module';
+import { CuentasCobrarModule } from './cuentas-cobrar/cuentas-cobrar.module';
+import { CfdiModule } from './cfdi/cfdi.module';
+import { MotorPromocionesModule } from './motor-promociones/motor-promociones.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -51,6 +59,15 @@ import { AuditoriaModule } from './auditoria/auditoria.module';
     PromocionesModule,
     HistorialPreciosModule,
     AuditoriaModule,
+    KdsModule,
+    TurnosCajaModule,
+    CuentasDivididasModule,
+    DevolucionesModule,
+    MermasModule,
+    ReportesModule,
+    CuentasCobrarModule,
+    CfdiModule,
+    MotorPromocionesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

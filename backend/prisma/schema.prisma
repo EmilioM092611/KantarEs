@@ -51,6 +51,63 @@ model categorias {
   @@index([id_tipo_producto], map: "idx_categorias_tipo")
 }
 
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model cc_movimientos {
+  id_mov         Int            @id @default(autoincrement())
+  id_cc          Int
+  tipo           String         @db.VarChar(10)
+  monto          Decimal        @db.Decimal(12, 2)
+  fecha          DateTime       @default(now()) @db.Timestamptz(6)
+  referencia     String?        @db.VarChar(120)
+  id_orden       Int?
+  id_pago        Int?
+  cuentas_cobrar cuentas_cobrar @relation(fields: [id_cc], references: [id_cc], onDelete: Cascade, onUpdate: NoAction)
+  ordenes        ordenes?       @relation(fields: [id_orden], references: [id_orden], onDelete: NoAction, onUpdate: NoAction)
+  pagos          pagos?         @relation(fields: [id_pago], references: [id_pago], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([id_cc, fecha], map: "idx_cc_mov_fecha")
+}
+
+model cfdi_comprobantes {
+  id_cfdi         Int             @id @default(autoincrement())
+  id_orden        Int?
+  id_receptor     Int
+  tipo            String          @default("I") @db.Char(1)
+  serie           String?         @db.VarChar(10)
+  folio           String?         @db.VarChar(20)
+  uuid            String?         @db.VarChar(50)
+  estatus         String          @default("pendiente") @db.VarChar(12)
+  subtotal        Decimal?        @db.Decimal(14, 2)
+  impuestos       Json?
+  total           Decimal?        @db.Decimal(14, 2)
+  fecha_emision   DateTime        @default(now()) @db.Timestamptz(6)
+  xml             String?
+  pdf_url         String?
+  error_msg       String?
+  created_at      DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?       @default(now()) @db.Timestamptz(6)
+  ordenes         ordenes?        @relation(fields: [id_orden], references: [id_orden], onDelete: NoAction)
+  cfdi_receptores cfdi_receptores @relation(fields: [id_receptor], references: [id_receptor], onDelete: NoAction)
+
+  @@index([id_orden], map: "idx_cfdi_orden")
+  @@index([id_receptor], map: "idx_cfdi_receptor")
+  @@index([uuid], map: "idx_cfdi_uuid")
+}
+
+model cfdi_receptores {
+  id_receptor       Int                 @id @default(autoincrement())
+  rfc               String              @db.VarChar(13)
+  razon_social      String              @db.VarChar(160)
+  regimen_fiscal    String              @db.VarChar(3)
+  uso_cfdi          String              @db.VarChar(3)
+  email             String?             @db.VarChar(120)
+  created_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  cfdi_comprobantes cfdi_comprobantes[]
+
+  @@unique([rfc, razon_social], map: "uq_cfdi_receptor")
+}
+
 model compra_detalle {
   id_detalle           Int             @id @default(autoincrement())
   id_compra            Int
@@ -142,6 +199,23 @@ model cortes_caja {
   @@index([fecha_hora_inicio], map: "idx_cortes_fecha")
   @@index([folio_corte], map: "idx_cortes_folio")
   @@index([id_tipo_corte], map: "idx_cortes_tipo")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model cuentas_cobrar {
+  id_cc          Int              @id @default(autoincrement())
+  id_persona     Int
+  referencia     String           @db.VarChar(80)
+  saldo          Decimal          @default(0) @db.Decimal(12, 2)
+  vencimiento    DateTime?        @db.Date
+  estado         estado_cc        @default(abierta)
+  created_at     DateTime?        @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime?        @default(now()) @db.Timestamptz(6)
+  cc_movimientos cc_movimientos[]
+  personas       personas         @relation(fields: [id_persona], references: [id_persona], onDelete: NoAction)
+
+  @@index([estado], map: "idx_cc_estado")
+  @@index([id_persona], map: "idx_cc_persona")
 }
 
 model estados_mesa {
@@ -244,6 +318,7 @@ model mesas {
   created_at         DateTime?       @default(now()) @db.Timestamptz(6)
   updated_at         DateTime?       @default(now()) @db.Timestamptz(6)
   estados_mesa       estados_mesa?   @relation(fields: [id_estado_mesa], references: [id_estado_mesa], onDelete: NoAction)
+  reservaciones      reservaciones[]
   sesiones_mesa      sesiones_mesa[]
 
   @@index([activa], map: "idx_mesas_activa")
@@ -349,6 +424,8 @@ model ordenes {
   id_promocion_aplicada  Int?
   created_at             DateTime?                @default(now()) @db.Timestamptz(6)
   updated_at             DateTime?                @default(now()) @db.Timestamptz(6)
+  cc_movimientos         cc_movimientos[]
+  cfdi_comprobantes      cfdi_comprobantes[]
   movimientos_inventario movimientos_inventario[]
   orden_detalle          orden_detalle[]
   estados_orden          estados_orden            @relation(fields: [id_estado_orden], references: [id_estado_orden], onDelete: NoAction)
@@ -368,28 +445,29 @@ model ordenes {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model pagos {
-  id_pago                Int           @id @default(autoincrement())
-  folio_pago             String        @unique @db.VarChar(30)
+  id_pago                Int              @id @default(autoincrement())
+  folio_pago             String           @unique @db.VarChar(30)
   id_orden               Int
   id_metodo_pago         Int
   id_usuario_cobra       Int
-  monto                  Decimal       @db.Decimal(10, 2)
-  fecha_hora_pago        DateTime      @db.Timestamptz(6)
-  referencia_transaccion String?       @db.VarChar(100)
-  numero_autorizacion    String?       @db.VarChar(50)
-  ultimos_4_digitos      String?       @db.VarChar(4)
-  nombre_tarjetahabiente String?       @db.VarChar(100)
+  monto                  Decimal          @db.Decimal(10, 2)
+  fecha_hora_pago        DateTime         @db.Timestamptz(6)
+  referencia_transaccion String?          @db.VarChar(100)
+  numero_autorizacion    String?          @db.VarChar(50)
+  ultimos_4_digitos      String?          @db.VarChar(4)
+  nombre_tarjetahabiente String?          @db.VarChar(100)
   tipo_tarjeta           tipo_tarjeta?
-  banco_emisor           String?       @db.VarChar(50)
-  cambio_entregado       Decimal?      @default(0.00) @db.Decimal(10, 2)
-  estado                 estado_pago?  @default(pendiente)
-  motivo_cancelacion     String?       @db.VarChar(200)
+  banco_emisor           String?          @db.VarChar(50)
+  cambio_entregado       Decimal?         @default(0.00) @db.Decimal(10, 2)
+  estado                 estado_pago?     @default(pendiente)
+  motivo_cancelacion     String?          @db.VarChar(200)
   id_corte_caja          Int?
-  created_at             DateTime?     @default(now()) @db.Timestamptz(6)
-  cortes_caja            cortes_caja?  @relation(fields: [id_corte_caja], references: [id_corte], onDelete: NoAction)
-  metodos_pago           metodos_pago  @relation(fields: [id_metodo_pago], references: [id_metodo_pago], onDelete: NoAction)
-  ordenes                ordenes       @relation(fields: [id_orden], references: [id_orden], onDelete: NoAction)
-  usuarios               usuarios      @relation(fields: [id_usuario_cobra], references: [id_usuario], onDelete: NoAction)
+  created_at             DateTime?        @default(now()) @db.Timestamptz(6)
+  cc_movimientos         cc_movimientos[]
+  cortes_caja            cortes_caja?     @relation(fields: [id_corte_caja], references: [id_corte], onDelete: NoAction)
+  metodos_pago           metodos_pago     @relation(fields: [id_metodo_pago], references: [id_metodo_pago], onDelete: NoAction)
+  ordenes                ordenes          @relation(fields: [id_orden], references: [id_orden], onDelete: NoAction)
+  usuarios               usuarios         @relation(fields: [id_usuario_cobra], references: [id_usuario], onDelete: NoAction)
 
   @@index([id_corte_caja], map: "idx_pagos_corte")
   @@index([estado], map: "idx_pagos_estado")
@@ -399,15 +477,16 @@ model pagos {
 }
 
 model personas {
-  id_persona       Int        @id @default(autoincrement())
-  nombre           String     @db.VarChar(60)
-  apellido_paterno String     @db.VarChar(60)
-  apellido_materno String?    @db.VarChar(60)
-  fecha_nacimiento DateTime?  @db.Date
+  id_persona       Int              @id @default(autoincrement())
+  nombre           String           @db.VarChar(60)
+  apellido_paterno String           @db.VarChar(60)
+  apellido_materno String?          @db.VarChar(60)
+  fecha_nacimiento DateTime?        @db.Date
   id_genero        Int?
-  created_at       DateTime?  @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime?  @default(now()) @db.Timestamptz(6)
-  generos          generos?   @relation(fields: [id_genero], references: [id_genero], onDelete: NoAction)
+  created_at       DateTime?        @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?        @default(now()) @db.Timestamptz(6)
+  cuentas_cobrar   cuentas_cobrar[]
+  generos          generos?         @relation(fields: [id_genero], references: [id_genero], onDelete: NoAction)
   usuarios         usuarios[]
 
   @@index([nombre, apellido_paterno], map: "idx_personas_nombre")
@@ -571,6 +650,27 @@ model receta_insumos {
   @@index([id_producto_final], map: "idx_receta_producto_final")
 }
 
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This table contains exclusion constraints and requires additional setup for migrations. Visit https://pris.ly/d/exclusion-constraints for more info.
+model reservaciones {
+  id_reservacion Int                 @id @default(autoincrement())
+  id_mesa        Int?
+  nombre_cliente String              @db.VarChar(100)
+  telefono       String?             @db.VarChar(20)
+  personas       Int?                @default(1)
+  fecha_inicio   DateTime            @db.Timestamptz(6)
+  fecha_fin      DateTime            @db.Timestamptz(6)
+  estado         estado_reservacion? @default(pendiente)
+  notas          String?
+  created_at     DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime?           @default(now()) @db.Timestamptz(6)
+  mesas          mesas?              @relation(fields: [id_mesa], references: [id_mesa], onDelete: NoAction)
+
+  @@index([estado], map: "idx_reservas_estado")
+  @@index([fecha_inicio], map: "idx_reservas_fecha")
+  @@index([id_mesa, fecha_inicio, fecha_fin], map: "idx_reservas_mesa_rango")
+}
+
 model roles {
   id_rol       Int        @id @default(autoincrement())
   nombre       String     @unique @db.VarChar(50)
@@ -707,6 +807,12 @@ enum aplicacion_promocion {
   total_cuenta
 }
 
+enum estado_cc {
+  abierta
+  parcial
+  liquidada
+}
+
 enum estado_compra {
   pendiente
   autorizada
@@ -733,6 +839,14 @@ enum estado_pago {
   completado
   cancelado
   reembolsado
+}
+
+enum estado_reservacion {
+  pendiente
+  confirmada
+  cancelada
+  no_show
+  cumplida
 }
 
 enum estado_sesion {

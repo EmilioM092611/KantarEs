@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/require-await */
 import { Module, Global } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { redisStore } from 'cache-manager-redis-yet';
+import { createIoRedisStore } from './ioredis.store';
 
 @Global()
 @Module({
@@ -14,19 +15,15 @@ import { redisStore } from 'cache-manager-redis-yet';
         const host = config.get<string>('REDIS_HOST') ?? '127.0.0.1';
         const port = Number(config.get<string>('REDIS_PORT') ?? 6379);
         const password = config.get<string>('REDIS_PASSWORD') || undefined;
-        const database = Number(config.get<string>('REDIS_DB') ?? 0);
+        const db = Number(config.get<string>('REDIS_DB') ?? 0);
+        const ttl = 600_000; // 10 min (ms)
 
-        // ⚠️ Solución: creamos el store primero
-        const store = await redisStore({
-          socket: { host, port },
-          password,
-          database,
-        });
+        // ⬇️ OBJETO PLANO con get/set/del/reset
+        const store = createIoRedisStore({ host, port, password, db, ttl });
 
-        // ⚠️ Y luego lo retornamos como instancia ya resuelta
         return {
-          store, // ✅ no es una Promise ni una función, ya es el store real
-          ttl: 600_000, // 10 min (ms)
+          store, // <- objeto con métodos propios
+          ttl, // TTL global en ms (también puedes omitirlo y pasar TTL por operación)
         };
       },
     }),

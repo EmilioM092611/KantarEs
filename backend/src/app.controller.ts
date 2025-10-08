@@ -17,18 +17,13 @@ export class AppController {
     return this.appService.getHello?.() ?? 'OK';
   }
 
-  /**
-   * Verifica conectividad con Redis Cache:
-   * - set/get dos claves
-   * - devuelve estado legible
-   */
   @Get('cache-stats')
   async cacheStats() {
     try {
       const k1 = `cache-stats:ping:${Date.now()}`;
       const k2 = `cache-stats:ping2:${Date.now()}`;
 
-      await this.cacheManager.set(k1, 'ok', 10_000); // 10s
+      await this.cacheManager.set(k1, 'ok', 10_000);
       await this.cacheManager.set(k2, { status: 'ok' }, 10_000);
 
       const v1 = await this.cacheManager.get<string>(k1);
@@ -50,9 +45,6 @@ export class AppController {
     }
   }
 
-  /**
-   * (Opcional) sanity check a la BD
-   */
   @Get('db-ping')
   async dbPing() {
     try {

@@ -80,3 +80,9 @@ pnpm dev
 # levantar el servidor de Nest
 
 -pnpm run star:dev
+
+------------------------------Verificación de Redis desde docker o PS--------------------------
+-docker exec -it <contenedor_redis> redis-cli
+-PINGa #Responderá PONG
+-KEYS cache-stats:\* #Se verán las 2 claves
+-TTL cache-stats:ping:... #segundos restantes (>0)

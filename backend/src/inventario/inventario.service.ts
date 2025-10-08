@@ -3,17 +3,72 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+// ^ ajusta el path si tu estructura es distinta
 import { CreateInventarioDto } from './dto/create-inventario.dto';
 import { UpdateInventarioDto } from './dto/update-inventario.dto';
 import { AdjustInventarioDto } from './dto/adjust-inventario.dto';
 import { FilterInventarioDto, StockStatus } from './dto/filter-inventario.dto';
 import { Prisma } from '@prisma/client';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
+import { CacheUtil } from '../cache/cache-util.service';
 
 @Injectable()
 export class InventarioService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    private readonly cacheUtil: CacheUtil, // <<<<<< NEW
+  ) {}
+
+  // TTLs en milisegundos (cache-manager v5)
+  private readonly DEFAULT_TTL = 60_000; // 60s listas/detalles
+  private readonly STATS_TTL = 60_000; // 60s agregados
+
+  // ---------- Helpers de claves ----------
+  private keyList(filters?: FilterInventarioDto) {
+    const safe = {
+      id_producto: filters?.id_producto ?? null,
+      requiere_refrigeracion: filters?.requiere_refrigeracion ?? null,
+      ubicacion_almacen:
+        (filters?.ubicacion_almacen ?? '').toLowerCase() || null,
+      solo_bajo_stock: !!filters?.solo_bajo_stock,
+      punto_reorden_alcanzado: !!filters?.punto_reorden_alcanzado,
+      estado: filters?.estado ?? null,
+    };
+    return `inventario:list:${JSON.stringify(safe)}`;
+  }
+
+  private keyById(id: number) {
+    return `inventario:id:${id}`;
+  }
+
+  private keyByProducto(idProducto: number) {
+    return `inventario:producto:${idProducto}`;
+  }
+
+  private keyBajoStock() {
+    return 'inventario:bajo-stock';
+  }
+
+  private keyReorden() {
+    return 'inventario:reorden';
+  }
+
+  private keyStats() {
+    return 'inventario:stats';
+  }
+
+  /** Invalida listas y agregados del módulo de inventario */
+  private async invalidateListsAndAggregates() {
+    await this.cacheUtil.invalidate({
+      patterns: ['inventario:list:*'],
+      keys: [this.keyBajoStock(), this.keyReorden(), this.keyStats()],
+    });
+  }
 
   /**
    * Calcula el estado del stock de un producto
@@ -58,7 +113,7 @@ export class InventarioService {
     }
 
     try {
-      return await this.prisma.inventario.create({
+      const inv = await this.prisma.inventario.create({
         data: {
           id_producto: createInventarioDto.id_producto,
           stock_actual: createInventarioDto.stock_actual
@@ -83,21 +138,22 @@ export class InventarioService {
               sku: true,
               nombre: true,
               unidades_medida: {
-                select: {
-                  nombre: true,
-                  abreviatura: true,
-                },
+                select: { nombre: true, abreviatura: true },
               },
-              categorias: {
-                select: {
-                  nombre: true,
-                },
-              },
+              categorias: { select: { nombre: true } },
             },
           },
         },
       });
-    } catch (error) {
+
+      // invalidación selectiva
+      await this.invalidateListsAndAggregates();
+      await this.cacheUtil.invalidate({
+        keys: [this.keyByProducto(inv.id_producto)],
+      });
+
+      return inv;
+    } catch (error: any) {
       if (error.code === 'P2002') {
         throw new ConflictException('Ya existe inventario para este producto');
       }
@@ -106,27 +162,23 @@ export class InventarioService {
   }
 
   async findAll(filters?: FilterInventarioDto) {
+    const listKey = this.keyList(filters);
+    const cached = await this.cache.get<any[]>(listKey);
+    if (cached) return cached;
+
     const where: Prisma.inventarioWhereInput = {};
 
-    if (filters?.id_producto) {
-      where.id_producto = filters.id_producto;
-    }
-
-    if (filters?.requiere_refrigeracion !== undefined) {
+    if (filters?.id_producto) where.id_producto = filters.id_producto;
+    if (filters?.requiere_refrigeracion !== undefined)
       where.requiere_refrigeracion = filters.requiere_refrigeracion;
-    }
-
     if (filters?.ubicacion_almacen) {
       where.ubicacion_almacen = {
         contains: filters.ubicacion_almacen,
         mode: 'insensitive',
       };
     }
-
     if (filters?.solo_bajo_stock) {
-      where.stock_actual = {
-        lte: this.prisma.inventario.fields.stock_minimo,
-      };
+      where.stock_actual = { lte: this.prisma.inventario.fields.stock_minimo };
     }
 
     const inventarios = await this.prisma.inventario.findMany({
@@ -137,28 +189,14 @@ export class InventarioService {
             sku: true,
             nombre: true,
             disponible: true,
-            unidades_medida: {
-              select: {
-                nombre: true,
-                abreviatura: true,
-              },
-            },
-            categorias: {
-              select: {
-                nombre: true,
-              },
-            },
+            unidades_medida: { select: { nombre: true, abreviatura: true } },
+            categorias: { select: { nombre: true } },
           },
         },
       },
-      orderBy: {
-        productos: {
-          nombre: 'asc',
-        },
-      },
+      orderBy: { productos: { nombre: 'asc' } },
     });
 
-    // Aplicar filtros de estado y punto de reorden en memoria
     let resultado = inventarios;
 
     if (filters?.punto_reorden_alcanzado) {
@@ -181,8 +219,7 @@ export class InventarioService {
       });
     }
 
-    // Agregar estado calculado a cada inventario
-    return resultado.map((inv) => ({
+    const finalData = resultado.map((inv) => ({
       ...inv,
       estado_stock: this.calcularEstadoStock(
         Number(inv.stock_actual),
@@ -191,9 +228,16 @@ export class InventarioService {
         inv.stock_maximo ? Number(inv.stock_maximo) : undefined,
       ),
     }));
+
+    await this.cache.set(listKey, finalData, this.DEFAULT_TTL);
+    return finalData;
   }
 
   async findOne(id: number) {
+    const key = this.keyById(id);
+    const cached = await this.cache.get<any>(key);
+    if (cached) return cached;
+
     const inventario = await this.prisma.inventario.findUnique({
       where: { id_inventario: id },
       include: {
@@ -205,17 +249,8 @@ export class InventarioService {
             disponible: true,
             precio_venta: true,
             costo_promedio: true,
-            unidades_medida: {
-              select: {
-                nombre: true,
-                abreviatura: true,
-              },
-            },
-            categorias: {
-              select: {
-                nombre: true,
-              },
-            },
+            unidades_medida: { select: { nombre: true, abreviatura: true } },
+            categorias: { select: { nombre: true } },
           },
         },
       },
@@ -225,7 +260,7 @@ export class InventarioService {
       throw new NotFoundException(`Inventario con ID ${id} no encontrado`);
     }
 
-    return {
+    const enriched = {
       ...inventario,
       estado_stock: this.calcularEstadoStock(
         Number(inventario.stock_actual),
@@ -234,9 +269,16 @@ export class InventarioService {
         inventario.stock_maximo ? Number(inventario.stock_maximo) : undefined,
       ),
     };
+
+    await this.cache.set(key, enriched, this.DEFAULT_TTL);
+    return enriched;
   }
 
   async findByProducto(idProducto: number) {
+    const key = this.keyByProducto(idProducto);
+    const cached = await this.cache.get<any>(key);
+    if (cached) return cached;
+
     const inventario = await this.prisma.inventario.findUnique({
       where: { id_producto: idProducto },
       include: {
@@ -244,12 +286,7 @@ export class InventarioService {
           select: {
             sku: true,
             nombre: true,
-            unidades_medida: {
-              select: {
-                nombre: true,
-                abreviatura: true,
-              },
-            },
+            unidades_medida: { select: { nombre: true, abreviatura: true } },
           },
         },
       },
@@ -261,7 +298,7 @@ export class InventarioService {
       );
     }
 
-    return {
+    const enriched = {
       ...inventario,
       estado_stock: this.calcularEstadoStock(
         Number(inventario.stock_actual),
@@ -270,12 +307,15 @@ export class InventarioService {
         inventario.stock_maximo ? Number(inventario.stock_maximo) : undefined,
       ),
     };
+
+    await this.cache.set(key, enriched, this.DEFAULT_TTL);
+    return enriched;
   }
 
   async update(id: number, updateInventarioDto: UpdateInventarioDto) {
     await this.findOne(id);
 
-    return await this.prisma.inventario.update({
+    const updated = await this.prisma.inventario.update({
       where: { id_inventario: id },
       data: {
         stock_minimo: updateInventarioDto.stock_minimo
@@ -297,16 +337,27 @@ export class InventarioService {
           select: {
             sku: true,
             nombre: true,
-            unidades_medida: {
-              select: {
-                nombre: true,
-                abreviatura: true,
-              },
-            },
+            unidades_medida: { select: { nombre: true, abreviatura: true } },
           },
         },
       },
     });
+
+    await this.cacheUtil.invalidate({
+      keys: [
+        this.keyById(id),
+        ...(updated?.id_producto
+          ? [this.keyByProducto(updated.id_producto)]
+          : []),
+      ],
+      patterns: ['inventario:list:*'],
+    });
+    // stats y listas dependientes
+    await this.cacheUtil.invalidate({
+      keys: [this.keyBajoStock(), this.keyReorden(), this.keyStats()],
+    });
+
+    return updated;
   }
 
   async adjustStock(id: number, adjustInventarioDto: AdjustInventarioDto) {
@@ -315,16 +366,26 @@ export class InventarioService {
     const stockAnterior = Number(inventario.stock_actual);
     const nuevoStock = Number(adjustInventarioDto.nuevo_stock);
 
-    // Actualizar inventario
     const inventarioActualizado = await this.prisma.inventario.update({
       where: { id_inventario: id },
       data: {
         stock_actual: new Prisma.Decimal(nuevoStock),
         fecha_ultimo_inventario: new Date(),
       },
-      include: {
-        productos: true,
-      },
+      include: { productos: true },
+    });
+
+    await this.cacheUtil.invalidate({
+      keys: [
+        this.keyById(id),
+        ...(inventarioActualizado?.id_producto
+          ? [this.keyByProducto(inventarioActualizado.id_producto)]
+          : []),
+      ],
+      patterns: ['inventario:list:*'],
+    });
+    await this.cacheUtil.invalidate({
+      keys: [this.keyBajoStock(), this.keyReorden(), this.keyStats()],
     });
 
     return {
@@ -336,11 +397,13 @@ export class InventarioService {
   }
 
   async getProductosBajoStock() {
+    const key = this.keyBajoStock();
+    const cached = await this.cache.get<any[]>(key);
+    if (cached) return cached;
+
     const inventarios = await this.prisma.inventario.findMany({
       where: {
-        stock_actual: {
-          lte: this.prisma.inventario.fields.stock_minimo,
-        },
+        stock_actual: { lte: this.prisma.inventario.fields.stock_minimo },
       },
       include: {
         productos: {
@@ -348,26 +411,15 @@ export class InventarioService {
             sku: true,
             nombre: true,
             disponible: true,
-            unidades_medida: {
-              select: {
-                nombre: true,
-                abreviatura: true,
-              },
-            },
-            categorias: {
-              select: {
-                nombre: true,
-              },
-            },
+            unidades_medida: { select: { nombre: true, abreviatura: true } },
+            categorias: { select: { nombre: true } },
           },
         },
       },
-      orderBy: {
-        stock_actual: 'asc',
-      },
+      orderBy: { stock_actual: 'asc' },
     });
 
-    return inventarios.map((inv) => ({
+    const data = inventarios.map((inv) => ({
       ...inv,
       estado_stock: this.calcularEstadoStock(
         Number(inv.stock_actual),
@@ -377,62 +429,57 @@ export class InventarioService {
       ),
       faltante: Number(inv.stock_minimo) - Number(inv.stock_actual),
     }));
+
+    await this.cache.set(key, data, this.DEFAULT_TTL);
+    return data;
   }
 
   async getProductosReorden() {
+    const key = this.keyReorden();
+    const cached = await this.cache.get<any[]>(key);
+    if (cached) return cached;
+
     const inventarios = await this.prisma.inventario.findMany({
-      where: {
-        punto_reorden: {
-          not: null,
-        },
-      },
+      where: { punto_reorden: { not: null } },
       include: {
         productos: {
           select: {
             sku: true,
             nombre: true,
             disponible: true,
-            unidades_medida: {
-              select: {
-                nombre: true,
-                abreviatura: true,
-              },
-            },
-            categorias: {
-              select: {
-                nombre: true,
-              },
-            },
+            unidades_medida: { select: { nombre: true, abreviatura: true } },
+            categorias: { select: { nombre: true } },
           },
         },
       },
     });
 
-    // Filtrar solo los que alcanzaron el punto de reorden
     const enPuntoReorden = inventarios.filter(
       (inv) =>
         inv.punto_reorden &&
         Number(inv.stock_actual) <= Number(inv.punto_reorden),
     );
 
-    return enPuntoReorden.map((inv) => ({
+    const data = enPuntoReorden.map((inv) => ({
       ...inv,
       estado_stock: StockStatus.BAJO,
       cantidad_sugerida: inv.stock_maximo
         ? Number(inv.stock_maximo) - Number(inv.stock_actual)
         : Number(inv.punto_reorden) * 2,
     }));
+
+    await this.cache.set(key, data, this.DEFAULT_TTL);
+    return data;
   }
 
   async getEstadisticas() {
+    const key = this.keyStats();
+    const cached = await this.cache.get<any>(key);
+    if (cached) return cached;
+
     const inventarios = await this.prisma.inventario.findMany({
       include: {
-        productos: {
-          select: {
-            costo_promedio: true,
-            precio_venta: true,
-          },
-        },
+        productos: { select: { costo_promedio: true, precio_venta: true } },
       },
     });
 
@@ -453,12 +500,15 @@ export class InventarioService {
       return sum + costo * cantidad;
     }, 0);
 
-    return {
+    const result = {
       total_productos: total,
       productos_criticos: critico,
       productos_punto_reorden: puntoReorden,
       productos_normal: total - critico - puntoReorden,
       valor_total_inventario: valorInventario.toFixed(2),
     };
+
+    await this.cache.set(key, result, this.STATS_TTL);
+    return result;
   }
 }

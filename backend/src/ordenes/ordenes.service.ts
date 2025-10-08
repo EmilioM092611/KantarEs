@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 // ============== ordenes.service.ts ==============
 import {
   Injectable,
@@ -6,6 +8,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
+  Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrdenDto, CreateOrdenItemDto } from './dto/create-orden.dto'; // CORREGIDO: Importar ambos
@@ -26,12 +29,99 @@ import {
 } from './types/orden.types';
 import { estado_orden_detalle, Prisma } from '@prisma/client';
 
+// ==== Cache ====
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
+import { CacheUtil } from '../cache/cache-util.service';
+
 @Injectable()
 export class OrdenesService {
   private readonly logger = new Logger(OrdenesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  // TTLs
+  private readonly LIST_TTL = 60_000; // 60s para listados con filtros
+  private readonly DETAIL_TTL = 90_000; // 90s para detalle por id
+  private readonly BOARD_TTL = 20_000; // 20s para vistas "tablero" (cocina/pendientes/items por servir)
 
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    private readonly cacheUtil: CacheUtil,
+  ) {}
+
+  // ===== Helpers de claves =====
+  private keyById(id: number) {
+    return `ordenes:id:${id}`;
+  }
+  private keyList(q: QueryOrdenesDto) {
+    const safe = {
+      id_sesion_mesa: q?.id_sesion_mesa ?? null,
+      id_usuario_mesero: q?.id_usuario_mesero ?? null,
+      id_estado_orden: q?.id_estado_orden ?? null,
+      id_mesa: q?.id_mesa ?? null,
+      para_llevar: q?.para_llevar ?? null,
+      folio: q?.folio ? String(q.folio).toLowerCase() : null,
+      fecha_desde: q?.fecha_desde
+        ? new Date(q.fecha_desde).toISOString()
+        : null,
+      fecha_hasta: q?.fecha_hasta
+        ? new Date(q.fecha_hasta).toISOString()
+        : null,
+      limit: q?.limit ?? 50,
+      offset: q?.offset ?? 0,
+    };
+    return `ordenes:list:${JSON.stringify(safe)}`;
+  }
+  private keySesion(sesionId: number) {
+    return `ordenes:sesion:${sesionId}`;
+  }
+  private keyMesaActiva(mesaId: number) {
+    return `ordenes:mesa-activa:${mesaId}`;
+  }
+  private keyCocina() {
+    return `ordenes:cocina`;
+  }
+  private keyPendientesPago() {
+    return `ordenes:pendientes-pago`;
+  }
+  private keyItemsPorServir() {
+    return `ordenes:items-por-servir`;
+  }
+
+  private async invalidateListsAndBoards() {
+    await this.cacheUtil.invalidate({
+      patterns: [
+        'ordenes:list:*',
+        'ordenes:cocina',
+        'ordenes:pendientes-pago',
+        'ordenes:items-por-servir',
+      ],
+    });
+  }
+
+  private async invalidatePerOrdenContext(opts: {
+    idOrden?: number;
+    idSesion?: number;
+    idMesa?: number;
+  }) {
+    const keys: string[] = [];
+    const patterns: string[] = ['ordenes:list:*'];
+
+    if (opts.idOrden) keys.push(this.keyById(opts.idOrden));
+    if (opts.idSesion) keys.push(this.keySesion(opts.idSesion));
+    if (opts.idMesa) keys.push(this.keyMesaActiva(opts.idMesa));
+
+    // Vistas de tablero
+    keys.push(
+      this.keyCocina(),
+      this.keyPendientesPago(),
+      this.keyItemsPorServir(),
+    );
+
+    await this.cacheUtil.invalidate({ keys, patterns });
+  }
+
+  // ========== CREAR ORDEN ==========
   // ========== CREAR ORDEN ==========
   async create(createOrdenDto: CreateOrdenDto, userId: number) {
     // Verificar que la sesión existe y está abierta
@@ -40,9 +130,7 @@ export class OrdenesService {
         id_sesion: createOrdenDto.id_sesion_mesa,
         estado: 'abierta',
       },
-      include: {
-        mesas: true,
-      },
+      include: { mesas: true },
     });
 
     if (!sesion) {
@@ -56,13 +144,12 @@ export class OrdenesService {
     const estadoInicial = await this.prisma.estados_orden.findFirst({
       where: { nombre: 'pendiente' },
     });
-
     if (!estadoInicial) {
       throw new BadRequestException('Estado inicial no configurado');
     }
 
     // Crear la orden con transacción
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       // Crear orden principal
       const orden = await tx.ordenes.create({
         data: {
@@ -94,24 +181,39 @@ export class OrdenesService {
       const ordenActualizada = await this.recalcularTotales(tx, orden.id_orden);
 
       // Obtener orden completa con relaciones
-      return tx.ordenes.findUnique({
+      const full = await tx.ordenes.findUnique({
         where: { id_orden: ordenActualizada.id_orden },
         include: {
           estados_orden: true,
-          orden_detalle: {
-            include: {
-              productos: true,
-            },
-          },
-          sesiones_mesa: {
-            include: {
-              mesas: true,
-            },
-          },
+          orden_detalle: { include: { productos: true } },
+          sesiones_mesa: { include: { mesas: true } },
         },
       });
+
+      // Si por alguna razón no regresara, abortamos
+      if (!full) {
+        throw new NotFoundException(
+          'No se pudo recuperar la orden recién creada',
+        );
+      }
+      return full;
     });
+
+    // A partir de aquí, `created` es no-null
+    await this.cache.set(
+      this.keyById(created.id_orden),
+      created,
+      this.DETAIL_TTL,
+    );
+    await this.invalidatePerOrdenContext({
+      idOrden: created.id_orden,
+      idSesion: created.id_sesion_mesa,
+      idMesa: created.sesiones_mesa?.mesas?.id_mesa,
+    });
+
+    return created;
   }
+
   async update(id: number, updateOrdenDto: UpdateOrdenDto) {
     const orden = await this.findOne(id);
 
@@ -121,7 +223,7 @@ export class OrdenesService {
       );
     }
 
-    return this.prisma.ordenes.update({
+    const updated = await this.prisma.ordenes.update({
       where: { id_orden: id },
       data: {
         observaciones: updateOrdenDto.observaciones,
@@ -137,10 +239,22 @@ export class OrdenesService {
         },
       },
     });
+
+    await this.cache.set(this.keyById(id), updated, this.DETAIL_TTL);
+    await this.invalidatePerOrdenContext({
+      idOrden: id,
+      idSesion: updated.id_sesion_mesa,
+    });
+
+    return updated;
   }
 
   // ========== LISTAR ÓRDENES ==========
   async findAll(query: QueryOrdenesDto) {
+    const listKey = this.keyList(query);
+    const cached = await this.cache.get<any>(listKey);
+    if (cached) return cached;
+
     const where: Prisma.ordenesWhereInput = {};
 
     if (query.id_sesion_mesa) {
@@ -216,16 +330,23 @@ export class OrdenesService {
       this.prisma.ordenes.count({ where }),
     ]);
 
-    return {
+    const result = {
       data: ordenes,
       total,
       limit: query.limit || 50,
       offset: query.offset || 0,
     };
+
+    await this.cache.set(listKey, result, this.LIST_TTL);
+    return result;
   }
 
   // ========== OBTENER ORDEN POR ID ==========
   async findOne(id: number) {
+    const key = this.keyById(id);
+    const cached = await this.cache.get<any>(key);
+    if (cached) return cached;
+
     const orden = await this.prisma.ordenes.findUnique({
       where: { id_orden: id },
       include: {
@@ -266,12 +387,17 @@ export class OrdenesService {
       throw new NotFoundException(`Orden con ID ${id} no encontrada`);
     }
 
+    await this.cache.set(key, orden, this.DETAIL_TTL);
     return orden;
   }
 
   // ========== ÓRDENES POR SESIÓN ==========
   async findBySesion(sesionId: number) {
-    return this.prisma.ordenes.findMany({
+    const key = this.keySesion(sesionId);
+    const cached = await this.cache.get<any[]>(key);
+    if (cached) return cached;
+
+    const data = await this.prisma.ordenes.findMany({
       where: { id_sesion_mesa: sesionId },
       include: {
         estados_orden: true,
@@ -281,11 +407,18 @@ export class OrdenesService {
       },
       orderBy: { fecha_hora_orden: 'desc' },
     });
+
+    await this.cache.set(key, data, this.LIST_TTL);
+    return data;
   }
 
   // ========== ÓRDENES ACTIVAS POR MESA ==========
   async findByMesaActiva(mesaId: number) {
-    return this.prisma.ordenes.findMany({
+    const key = this.keyMesaActiva(mesaId);
+    const cached = await this.cache.get<any[]>(key);
+    if (cached) return cached;
+
+    const data = await this.prisma.ordenes.findMany({
       where: {
         sesiones_mesa: {
           id_mesa: mesaId,
@@ -307,6 +440,9 @@ export class OrdenesService {
       },
       orderBy: { fecha_hora_orden: 'desc' },
     });
+
+    await this.cache.set(key, data, this.BOARD_TTL);
+    return data;
   }
 
   // ========== AGREGAR ITEM A ORDEN ==========
@@ -320,7 +456,7 @@ export class OrdenesService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const item = await this.agregarItemInterno(tx, ordenId, addItemDto);
       await this.recalcularTotales(tx, ordenId);
 
@@ -331,6 +467,14 @@ export class OrdenesService {
         },
       });
     });
+
+    await this.invalidatePerOrdenContext({
+      idOrden: ordenId,
+      idSesion: orden.id_sesion_mesa,
+      idMesa: orden.sesiones_mesa?.mesas?.id_mesa,
+    });
+
+    return result;
   }
 
   // ========== AGREGAR MÚLTIPLES ITEMS ==========
@@ -343,7 +487,7 @@ export class OrdenesService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const itemIds: number[] = []; // CORREGIDO: Tipo explícito
 
       for (const itemDto of dto.items) {
@@ -364,6 +508,14 @@ export class OrdenesService {
         },
       });
     });
+
+    await this.invalidatePerOrdenContext({
+      idOrden: ordenId,
+      idSesion: orden.id_sesion_mesa,
+      idMesa: orden.sesiones_mesa?.mesas?.id_mesa,
+    });
+
+    return result;
   }
 
   // ========== ACTUALIZAR ITEM ==========
@@ -395,7 +547,7 @@ export class OrdenesService {
       throw new BadRequestException('No se puede modificar un item cancelado');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // Actualizar item
       const itemActualizado = await tx.orden_detalle.update({
         where: { id_detalle: itemId },
@@ -444,6 +596,14 @@ export class OrdenesService {
         include: { productos: true },
       });
     });
+
+    await this.invalidatePerOrdenContext({
+      idOrden: ordenId,
+      idSesion: orden.id_sesion_mesa,
+      idMesa: orden.sesiones_mesa?.mesas?.id_mesa,
+    });
+
+    return result;
   }
 
   // ========== ELIMINAR ITEM ==========
@@ -471,7 +631,7 @@ export class OrdenesService {
       throw new BadRequestException('Solo se pueden eliminar items pendientes');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.orden_detalle.delete({
         where: { id_detalle: itemId },
       });
@@ -480,11 +640,22 @@ export class OrdenesService {
 
       return { message: 'Item eliminado exitosamente' };
     });
+
+    await this.invalidatePerOrdenContext({
+      idOrden: ordenId,
+      idSesion: orden.id_sesion_mesa,
+      idMesa: orden.sesiones_mesa?.mesas?.id_mesa,
+    });
+
+    return result;
   }
 
   // ========== CAMBIAR ESTADO DE ORDEN ==========
   async cambiarEstado(id: number, dto: CambiarEstadoOrdenDto, userId: number) {
     const orden = await this.findOne(id);
+
+    // invalidar el detalle por si se usa dentro de la transacción
+    await this.cacheUtil.invalidate({ keys: [this.keyById(id)] });
 
     // Verificar que el estado existe
     const nuevoEstado = await this.prisma.estados_orden.findUnique({
@@ -507,7 +678,7 @@ export class OrdenesService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       // Actualizar estado
       const ordenActualizada = await tx.ordenes.update({
         where: { id_orden: id },
@@ -554,8 +725,29 @@ export class OrdenesService {
         await this.afectarInventario(tx, id, 'entrada');
       }
 
-      return this.findOne(id);
+      return ordenActualizada;
     });
+
+    // Invalidaciones (incluye vistas de tablero)
+    await this.invalidatePerOrdenContext({
+      idOrden: id,
+      idSesion: orden.id_sesion_mesa,
+      idMesa: orden.sesiones_mesa?.mesas?.id_mesa,
+    });
+
+    // Invalidación cruzada si hubo impacto en inventario (confirmada/cancelada)
+    if (
+      nuevoEstado.nombre === 'confirmada' ||
+      nuevoEstado.nombre === 'cancelada'
+    ) {
+      await this.cacheUtil.invalidate({
+        patterns: ['inventario:*'],
+        keys: ['productos:stats'],
+      });
+    }
+
+    // devolver detalle fresco
+    return this.findOne(id);
   }
 
   // ========== CAMBIAR ESTADO DE ITEM ==========
@@ -582,7 +774,7 @@ export class OrdenesService {
       );
     }
 
-    return this.prisma.orden_detalle.update({
+    const updated = await this.prisma.orden_detalle.update({
       where: { id_detalle: itemId },
       data: {
         estado: dto.estado,
@@ -601,6 +793,13 @@ export class OrdenesService {
         productos: true,
       },
     });
+
+    // Invalidar vistas relacionadas
+    await this.invalidatePerOrdenContext({
+      idOrden: ordenId,
+    });
+
+    return updated;
   }
 
   // ========== APLICAR DESCUENTO ==========
@@ -629,7 +828,7 @@ export class OrdenesService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       await tx.ordenes.update({
         where: { id_orden: id },
         data: {
@@ -645,6 +844,11 @@ export class OrdenesService {
 
       return this.recalcularTotales(tx, id);
     });
+
+    await this.cache.set(this.keyById(id), updated, this.DETAIL_TTL);
+    await this.invalidateListsAndBoards();
+
+    return updated;
   }
 
   // ========== APLICAR PROPINA ==========
@@ -657,7 +861,7 @@ export class OrdenesService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       await tx.ordenes.update({
         where: { id_orden: id },
         data: {
@@ -667,11 +871,20 @@ export class OrdenesService {
 
       return this.recalcularTotales(tx, id);
     });
+
+    await this.cache.set(this.keyById(id), updated, this.DETAIL_TTL);
+    await this.invalidateListsAndBoards();
+
+    return updated;
   }
 
   // ========== VISTA DE COCINA ==========
   async getOrdenesCocina() {
-    return this.prisma.ordenes.findMany({
+    const key = this.keyCocina();
+    const cached = await this.cache.get<any[]>(key);
+    if (cached) return cached;
+
+    const data = await this.prisma.ordenes.findMany({
       where: {
         estados_orden: {
           nombre: {
@@ -707,11 +920,18 @@ export class OrdenesService {
       },
       orderBy: { fecha_hora_orden: 'asc' },
     });
+
+    await this.cache.set(key, data, this.BOARD_TTL);
+    return data;
   }
 
   // ========== ÓRDENES PENDIENTES DE PAGO ==========
   async getOrdenesPendientes() {
-    return this.prisma.ordenes.findMany({
+    const key = this.keyPendientesPago();
+    const cached = await this.cache.get<any[]>(key);
+    if (cached) return cached;
+
+    const data = await this.prisma.ordenes.findMany({
       where: {
         estados_orden: {
           nombre: {
@@ -731,11 +951,18 @@ export class OrdenesService {
       },
       orderBy: { fecha_hora_orden: 'asc' },
     });
+
+    await this.cache.set(key, data, this.BOARD_TTL);
+    return data;
   }
 
   // ========== ITEMS POR SERVIR ==========
   async getItemsPorServir() {
-    return this.prisma.orden_detalle.findMany({
+    const key = this.keyItemsPorServir();
+    const cached = await this.cache.get<any[]>(key);
+    if (cached) return cached;
+
+    const data = await this.prisma.orden_detalle.findMany({
       where: {
         estado: 'listo',
       },
@@ -753,6 +980,9 @@ export class OrdenesService {
       },
       orderBy: { updated_at: 'asc' },
     });
+
+    await this.cache.set(key, data, this.BOARD_TTL);
+    return data;
   }
 
   // ========== MÉTODOS AUXILIARES PRIVADOS ==========

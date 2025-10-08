@@ -7,6 +7,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 import { RedisCacheModule } from './cache/cache.module';
+import { CacheToolsModule } from './cache/cache-tools.module';
+
+import { LoggerModule } from 'nestjs-pino';
+import { randomUUID } from 'crypto';
 
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -53,8 +57,21 @@ import { HealthModule } from './health/health.module';
         limit: Number(process.env.RATE_LIMIT ?? 100), // peticiones por ventana
       },
     ]),
+    LoggerModule.forRoot({
+      pinoHttp: {
+        level: process.env.LOG_LEVEL ?? 'info',
+        transport:
+          process.env.NODE_ENV === 'production'
+            ? undefined
+            : { target: 'pino-pretty' },
+        genReqId: (req) =>
+          (req.headers['x-request-id'] as string) ?? randomUUID(),
+        customProps: (req) => ({ userId: (req as any).user?.id ?? null }),
+      },
+    }),
 
     RedisCacheModule,
+    CacheToolsModule,
 
     PrismaModule,
     AuthModule,

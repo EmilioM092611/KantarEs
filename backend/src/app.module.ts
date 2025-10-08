@@ -6,6 +6,8 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
+import { RedisCacheModule } from './cache/cache.module';
+
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
@@ -44,7 +46,6 @@ import { HealthModule } from './health/health.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
-
     // Rate limiting global
     ThrottlerModule.forRoot([
       {
@@ -52,6 +53,8 @@ import { HealthModule } from './health/health.module';
         limit: Number(process.env.RATE_LIMIT ?? 100), // peticiones por ventana
       },
     ]),
+
+    RedisCacheModule,
 
     PrismaModule,
     AuthModule,

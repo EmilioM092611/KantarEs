@@ -39,3 +39,44 @@ Implementar Electron (configurar el package.json con las nuevas dependencias):
 
 -pnpm add -D electron @types/electron concurrently wait-on
 -pnpm electron-dev
+
+-----------------------------API-----------------------------------
+Test con jest y redis cache:
+-pnpm add -D @faker-js/faker supertest @types/supertest
+-pnpm add cache-manager@^5 @nestjs/cache-manager@^3 cache-manager-redis-yet ioredis
+
+Comandos para ejecutar los test con jest y 2e2:
+
+# Iniciar Redis
+
+-pnpm redis:start
+
+# Ejecutar todos los tests
+
+pnpm test
+
+# Ver cobertura
+
+pnpm test:cov
+
+# Tests en modo watch (mientras desarrollas)
+
+pnpm test:watch
+
+# Iniciar servidor con Redis
+
+pnpm dev
+
+------------------------Comandos para levantar el servidor---------------------------------:
+
+# Iniciar Redis
+
+-pnpm redis:start
+
+# Iniciar el daemon de docker
+
+-docker ps
+
+# levantar el servidor de Nest
+
+-pnpm run star:dev

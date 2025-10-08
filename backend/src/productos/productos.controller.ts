@@ -39,6 +39,7 @@ export class ProductosController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Obtener todos los productos' })
   async findAll(@Query() q: QueryProductosDto) {
     try {
       return await this.productosService.findAll(q);

@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-redundant-type-constituents */
 import {
   Injectable,
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCorteCajaDto } from './dto/create-corte-caja.dto';
@@ -11,9 +14,43 @@ import { CancelCorteCajaDto } from './dto/cancel-corte-caja.dto';
 import { FilterCorteCajaDto } from './dto/filter-corte-caja.dto';
 import { Prisma, estado_corte } from '@prisma/client';
 
+// ==== Cache ====
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
+import { CacheUtil } from '../cache/cache-util.service';
+
 @Injectable()
 export class CortesCajaService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    private readonly cacheUtil: CacheUtil,
+  ) {}
+
+  // ===== TTLs =====
+  private readonly LIST_TTL = 60_000; // 60s para listados
+  private readonly DETAIL_TTL = 120_000; // 120s para detalle
+  private readonly OPEN_TTL = 15_000; // 15s para "corte abierto"
+
+  // ===== Helpers de claves =====
+  private keyById(id: number) {
+    return `cortes:id:${id}`;
+  }
+  private keyList(filters?: FilterCorteCajaDto) {
+    const f = filters ?? {};
+    const safe = {
+      id_tipo_corte: f.id_tipo_corte ?? null,
+      id_usuario_realiza: f.id_usuario_realiza ?? null,
+      estado: f.estado ?? null,
+      folio_corte: f.folio_corte ? String(f.folio_corte).toLowerCase() : null,
+      fecha_desde: f.fecha_desde ?? null,
+      fecha_hasta: f.fecha_hasta ?? null,
+    };
+    return `cortes:list:${JSON.stringify(safe)}`;
+  }
+  private keyOpen() {
+    return `cortes:abierto`;
+  }
 
   /**
    * Genera un folio único para el corte
@@ -155,8 +192,19 @@ export class CortesCajaService {
         },
       });
 
+      // cache detalle y limpia listas/abierto
+      await this.cache.set(
+        this.keyById(corte.id_corte),
+        corte,
+        this.DETAIL_TTL,
+      );
+      await this.cacheUtil.invalidate({
+        patterns: ['cortes:list:*'],
+        keys: [this.keyOpen()],
+      });
+
       return corte;
-    } catch (error) {
+    } catch (error: any) {
       if (error.code === 'P2002') {
         throw new ConflictException('Ya existe un corte con ese folio');
       }
@@ -265,7 +313,7 @@ export class CortesCajaService {
     });
 
     // Cerrar el corte
-    return await this.prisma.cortes_caja.update({
+    const updated = await this.prisma.cortes_caja.update({
       where: { id_corte: id },
       data: {
         id_usuario_autoriza: closeCorteCajaDto.id_usuario_autoriza,
@@ -314,9 +362,24 @@ export class CortesCajaService {
         },
       },
     });
+
+    // invalidaciones: detalle, listas y "abierto"
+    await this.cacheUtil.invalidate({
+      keys: [this.keyById(id), this.keyOpen()],
+      patterns: ['cortes:list:*'],
+    });
+
+    // re-cachear detalle
+    await this.cache.set(this.keyById(id), updated, this.DETAIL_TTL);
+
+    return updated;
   }
 
   async findAll(filters?: FilterCorteCajaDto) {
+    const key = this.keyList(filters);
+    const cached = await this.cache.get<any>(key);
+    if (cached) return cached;
+
     const where: Prisma.cortes_cajaWhereInput = {};
 
     if (filters?.id_tipo_corte) {
@@ -353,7 +416,7 @@ export class CortesCajaService {
       }
     }
 
-    return await this.prisma.cortes_caja.findMany({
+    const data = await this.prisma.cortes_caja.findMany({
       where,
       include: {
         tipos_corte: true,
@@ -389,9 +452,16 @@ export class CortesCajaService {
         fecha_hora_inicio: 'desc',
       },
     });
+
+    await this.cache.set(key, data, this.LIST_TTL);
+    return data;
   }
 
   async findOne(id: number) {
+    const key = this.keyById(id);
+    const cached = await this.cache.get<any>(key);
+    if (cached) return cached;
+
     const corte = await this.prisma.cortes_caja.findUnique({
       where: { id_corte: id },
       include: {
@@ -431,17 +501,27 @@ export class CortesCajaService {
       throw new NotFoundException(`Corte de caja con ID ${id} no encontrado`);
     }
 
+    await this.cache.set(key, corte, this.DETAIL_TTL);
     return corte;
   }
 
   async findCorteAbierto() {
+    const key = this.keyOpen();
+    const cached = await this.cache.get<any | '__NULL__'>(key);
+    if (cached === '__NULL__') return null;
+    if (cached) return cached;
+
     const corte = await this.verificarCorteAbierto();
 
     if (!corte) {
+      // cachear nulo corto para evitar hits repetidos
+      await this.cache.set(key, '__NULL__', this.OPEN_TTL);
       return null;
     }
 
-    return await this.findOne(corte.id_corte);
+    const full = await this.findOne(corte.id_corte); // esto cachea detalle por id también
+    await this.cache.set(key, full, this.OPEN_TTL);
+    return full;
   }
 
   async cancel(id: number, cancelCorteCajaDto: CancelCorteCajaDto) {
@@ -463,12 +543,23 @@ export class CortesCajaService {
       data: { id_corte_caja: null },
     });
 
-    return await this.prisma.cortes_caja.update({
+    const updated = await this.prisma.cortes_caja.update({
       where: { id_corte: id },
       data: {
         estado: estado_corte.cancelado,
         observaciones: cancelCorteCajaDto.observaciones,
       },
     });
+
+    // invalidar detalle, listas y "abierto"
+    await this.cacheUtil.invalidate({
+      keys: [this.keyById(id), this.keyOpen()],
+      patterns: ['cortes:list:*'],
+    });
+
+    // opcional: re-cachear detalle mínimo
+    await this.cache.set(this.keyById(id), updated, this.DETAIL_TTL);
+
+    return updated;
   }
 }

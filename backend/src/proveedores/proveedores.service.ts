@@ -1,26 +1,78 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   Injectable,
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProveedorDto } from './dto/create-proveedor.dto';
 import { UpdateProveedorDto } from './dto/update-proveedor.dto';
 import { FilterProveedorDto } from './dto/filter-proveedor.dto';
 import { Prisma } from '@prisma/client';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
+import { CacheUtil } from '../cache/cache-util.service';
 
 @Injectable()
 export class ProveedoresService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly DEFAULT_TTL = 1_800_000; // 30 min
+  private readonly SHORT_TTL = 120_000; // 2 min
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    private readonly cacheUtil: CacheUtil,
+  ) {}
+
+  // Keys
+  private keyList(filters: Partial<FilterProveedorDto>) {
+    const safe = {
+      search: filters?.search ?? null,
+      activo: filters?.activo ?? null,
+      ciudad: filters?.ciudad ?? null,
+      estado: filters?.estado ?? null,
+      calificacion_min: filters?.calificacion_min ?? null,
+      page: filters?.page ?? 1,
+      limit: filters?.limit ?? 10,
+      sortBy: filters?.sortBy ?? 'razon_social',
+      sortOrder: filters?.sortOrder ?? 'asc',
+    };
+    return `proveedores:list:${JSON.stringify(safe)}`;
+  }
+  private keyById(id: number) {
+    return `proveedores:id:${id}`;
+  }
+  private keyByRfc(rfc: string) {
+    return `proveedores:rfc:${(rfc ?? '').toLowerCase()}`;
+  }
+  private keyActivos() {
+    return 'proveedores:list:activos';
+  }
+  private keyHistorial(id: number) {
+    return `proveedores:${id}:historial-compras`;
+  }
+  private keyStats(id: number) {
+    return `proveedores:${id}:estadisticas`;
+  }
+
+  private async invalidateProveedorLists() {
+    await this.cacheUtil.invalidate({
+      patterns: ['proveedores:list:*'],
+    });
+  }
+  private async invalidateProveedorDerived(id: number) {
+    await this.cacheUtil.invalidate({
+      keys: [this.keyActivos(), this.keyHistorial(id), this.keyStats(id)],
+    });
+  }
 
   async create(createProveedorDto: CreateProveedorDto) {
-    // Verificar si el RFC ya existe
     const rfcExists = await this.prisma.proveedores.findUnique({
       where: { rfc: createProveedorDto.rfc },
     });
-
     if (rfcExists) {
       throw new ConflictException(
         `Ya existe un proveedor con el RFC: ${createProveedorDto.rfc}`,
@@ -28,15 +80,34 @@ export class ProveedoresService {
     }
 
     try {
-      return await this.prisma.proveedores.create({
+      const proveedor = await this.prisma.proveedores.create({
         data: createProveedorDto,
       });
+
+      await this.cache.set(
+        this.keyById(proveedor.id_proveedor),
+        proveedor,
+        this.DEFAULT_TTL,
+      );
+      if (proveedor.rfc) {
+        await this.cache.set(
+          this.keyByRfc(proveedor.rfc),
+          proveedor,
+          this.DEFAULT_TTL,
+        );
+      }
+      await this.invalidateProveedorLists();
+      return proveedor;
     } catch (error) {
       throw new BadRequestException('Error al crear el proveedor');
     }
   }
 
   async findAll(filters: FilterProveedorDto) {
+    const listKey = this.keyList(filters);
+    const cached = await this.cache.get<{ data: any[]; meta: any }>(listKey);
+    if (cached) return cached;
+
     const {
       search,
       activo,
@@ -49,7 +120,6 @@ export class ProveedoresService {
       sortOrder = 'asc',
     } = filters;
 
-    // Construir el where dinámicamente
     const where: Prisma.proveedoresWhereInput = {
       AND: [
         activo !== undefined ? { activo } : {},
@@ -73,23 +143,25 @@ export class ProveedoresService {
         where,
         skip: (page - 1) * limit,
         take: limit,
-        orderBy: { [sortBy]: sortOrder },
+        orderBy: { [sortBy]: sortOrder } as any,
       }),
       this.prisma.proveedores.count({ where }),
     ]);
 
-    return {
+    const result = {
       data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
+
+    await this.cache.set(listKey, result, this.DEFAULT_TTL);
+    return result;
   }
 
   async findOne(id: number) {
+    const key = this.keyById(id);
+    const cached = await this.cache.get<any>(key);
+    if (cached) return cached;
+
     const proveedor = await this.prisma.proveedores.findUnique({
       where: { id_proveedor: id },
     });
@@ -98,10 +170,23 @@ export class ProveedoresService {
       throw new NotFoundException(`Proveedor con ID ${id} no encontrado`);
     }
 
+    await this.cache.set(key, proveedor, this.DEFAULT_TTL);
+    if (proveedor.rfc) {
+      await this.cache.set(
+        this.keyByRfc(proveedor.rfc),
+        proveedor,
+        this.DEFAULT_TTL,
+      );
+    }
+
     return proveedor;
   }
 
   async findByRfc(rfc: string) {
+    const key = this.keyByRfc(rfc);
+    const cached = await this.cache.get<any>(key);
+    if (cached) return cached;
+
     const proveedor = await this.prisma.proveedores.findUnique({
       where: { rfc },
     });
@@ -110,22 +195,23 @@ export class ProveedoresService {
       throw new NotFoundException(`Proveedor con RFC ${rfc} no encontrado`);
     }
 
+    await this.cache.set(key, proveedor, this.DEFAULT_TTL);
+    await this.cache.set(
+      this.keyById(proveedor.id_proveedor),
+      proveedor,
+      this.DEFAULT_TTL,
+    );
+
     return proveedor;
   }
 
   async update(id: number, updateProveedorDto: UpdateProveedorDto) {
-    // Verificar que el proveedor existe
-    await this.findOne(id);
+    const prev = await this.findOne(id);
 
-    // Si se está actualizando el RFC, verificar que no exista otro con ese RFC
     if (updateProveedorDto.rfc) {
       const rfcExists = await this.prisma.proveedores.findFirst({
-        where: {
-          rfc: updateProveedorDto.rfc,
-          NOT: { id_proveedor: id },
-        },
+        where: { rfc: updateProveedorDto.rfc, NOT: { id_proveedor: id } },
       });
-
       if (rfcExists) {
         throw new ConflictException(
           `Ya existe otro proveedor con el RFC: ${updateProveedorDto.rfc}`,
@@ -134,23 +220,37 @@ export class ProveedoresService {
     }
 
     try {
-      return await this.prisma.proveedores.update({
+      const proveedor = await this.prisma.proveedores.update({
         where: { id_proveedor: id },
         data: updateProveedorDto,
       });
+
+      await this.cache.set(this.keyById(id), proveedor, this.DEFAULT_TTL);
+      if (proveedor.rfc) {
+        await this.cache.set(
+          this.keyByRfc(proveedor.rfc),
+          proveedor,
+          this.DEFAULT_TTL,
+        );
+      }
+      if (prev?.rfc && prev.rfc !== proveedor.rfc) {
+        await this.cache.del(this.keyByRfc(prev.rfc));
+      }
+
+      await this.invalidateProveedorLists();
+      await this.invalidateProveedorDerived(id);
+      return proveedor;
     } catch (error) {
       throw new BadRequestException('Error al actualizar el proveedor');
     }
   }
 
   async remove(id: number) {
-    await this.findOne(id);
+    const proveedor = await this.findOne(id);
 
-    // Verificar si tiene compras asociadas
     const comprasCount = await this.prisma.compras.count({
       where: { id_proveedor: id },
     });
-
     if (comprasCount > 0) {
       throw new ConflictException(
         `No se puede eliminar el proveedor porque tiene ${comprasCount} compra(s) asociada(s). Considere desactivarlo en su lugar.`,
@@ -158,9 +258,20 @@ export class ProveedoresService {
     }
 
     try {
-      return await this.prisma.proveedores.delete({
+      const eliminado = await this.prisma.proveedores.delete({
         where: { id_proveedor: id },
       });
+
+      await this.cacheUtil.invalidate({
+        keys: [
+          this.keyById(id),
+          ...(proveedor?.rfc ? [this.keyByRfc(proveedor.rfc)] : []),
+        ],
+        patterns: ['proveedores:list:*'],
+      });
+      await this.invalidateProveedorDerived(id);
+
+      return eliminado;
     } catch (error) {
       throw new BadRequestException('Error al eliminar el proveedor');
     }
@@ -169,14 +280,31 @@ export class ProveedoresService {
   async toggleActive(id: number) {
     const proveedor = await this.findOne(id);
 
-    return await this.prisma.proveedores.update({
+    const actualizado = await this.prisma.proveedores.update({
       where: { id_proveedor: id },
       data: { activo: !proveedor.activo },
     });
+
+    await this.cache.set(this.keyById(id), actualizado, this.DEFAULT_TTL);
+    if (actualizado.rfc) {
+      await this.cache.set(
+        this.keyByRfc(actualizado.rfc),
+        actualizado,
+        this.DEFAULT_TTL,
+      );
+    }
+    await this.invalidateProveedorLists();
+    await this.invalidateProveedorDerived(id);
+
+    return actualizado;
   }
 
   async getHistorialCompras(id: number) {
     await this.findOne(id);
+
+    const key = this.keyHistorial(id);
+    const cached = await this.cache.get<any>(key);
+    if (cached) return cached;
 
     const compras = await this.prisma.compras.findMany({
       where: { id_proveedor: id },
@@ -185,10 +313,7 @@ export class ProveedoresService {
           select: {
             username: true,
             personas: {
-              select: {
-                nombre: true,
-                apellido_paterno: true,
-              },
+              select: { nombre: true, apellido_paterno: true },
             },
           },
         },
@@ -201,28 +326,30 @@ export class ProveedoresService {
       (sum, compra) => sum + Number(compra.total || 0),
       0,
     );
-
     const ultimaCompra = compras[0] || null;
 
-    return {
+    const result = {
       proveedor_id: id,
       total_compras: totalCompras,
       total_gastado: totalGastado,
       ultima_compra: ultimaCompra?.fecha_pedido || null,
       compras,
     };
+
+    await this.cache.set(key, result, this.SHORT_TTL);
+    return result;
   }
 
   async getEstadisticas(id: number) {
     await this.findOne(id);
 
+    const key = this.keyStats(id);
+    const cached = await this.cache.get<any>(key);
+    if (cached) return cached;
+
     const compras = await this.prisma.compras.findMany({
       where: { id_proveedor: id },
-      select: {
-        total: true,
-        estado: true,
-        fecha_pedido: true,
-      },
+      select: { total: true, estado: true, fecha_pedido: true },
     });
 
     const estadisticas = {
@@ -241,11 +368,16 @@ export class ProveedoresService {
           : 0,
     };
 
+    await this.cache.set(key, estadisticas, this.SHORT_TTL);
     return estadisticas;
   }
 
   async getProveedoresActivos() {
-    return await this.prisma.proveedores.findMany({
+    const key = this.keyActivos();
+    const cached = await this.cache.get<any[]>(key);
+    if (cached) return cached;
+
+    const data = await this.prisma.proveedores.findMany({
       where: { activo: true },
       orderBy: { razon_social: 'asc' },
       select: {
@@ -257,5 +389,8 @@ export class ProveedoresService {
         email: true,
       },
     });
+
+    await this.cache.set(key, data, this.DEFAULT_TTL);
+    return data;
   }
 }

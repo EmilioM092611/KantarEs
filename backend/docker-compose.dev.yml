@@ -20,6 +20,20 @@ services:
     volumes:
       - redis-data:/data
     restart: unless-stopped
+    image: grafana/agent:latest
+    container_name: grafana-agent
+    command: --config.file=/etc/agent/agent.yaml
+    environment:
+      # Pégalo en tu .env (ya lo creaste): GRAFANA_CLOUD_API_KEY=glc_...
+      GRAFANA_CLOUD_API_KEY: ${GRAFANA_CLOUD_API_KEY}
+    volumes:
+      - ./agent/agent.yaml:/etc/agent/agent.yaml:ro
+      - agent-wal:/var/lib/agent
+    # Hace que "host.docker.internal" resuelva en Linux y Windows
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    restart: unless-stopped
 
 volumes:
   redis-data:
+  agent-wal:

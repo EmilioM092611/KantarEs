@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompraDto } from './dto/create-compra.dto';
@@ -11,15 +12,54 @@ import { RecepcionarCompraDto } from './dto/recepcionar-compra.dto';
 import { CancelCompraDto } from './dto/cancel-compra.dto';
 import { FilterCompraDto } from './dto/filter-compra.dto';
 import { Prisma, estado_compra } from '@prisma/client';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
+import { CacheUtil } from '../cache/cache-util.service';
 
 @Injectable()
 export class ComprasService {
-  constructor(private prisma: PrismaService) {}
+  private readonly DEFAULT_TTL = 900_000; // 15 min
+  private readonly STATS_TTL = 120_000; // 2 min
 
-  /**
-   * Genera un folio único para la compra
-   * Formato: COM-YYYYMMDD-XXXX
-   */
+  constructor(
+    private prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    private readonly cacheUtil: CacheUtil,
+  ) {}
+
+  // Keys
+  private keyById(id: number) {
+    return `compras:id:${id}`;
+  }
+  private keyList(filters?: FilterCompraDto) {
+    const safe = {
+      id_proveedor: filters?.id_proveedor ?? null,
+      id_usuario_solicita: filters?.id_usuario_solicita ?? null,
+      estado: filters?.estado ?? null,
+      folio_compra: (filters?.folio_compra ?? '').toLowerCase() || null,
+      fecha_desde: filters?.fecha_desde
+        ? new Date(filters.fecha_desde).toISOString().slice(0, 10)
+        : null,
+      fecha_hasta: filters?.fecha_hasta
+        ? new Date(filters.fecha_hasta).toISOString().slice(0, 10)
+        : null,
+    };
+    return `compras:list:${JSON.stringify(safe)}`;
+  }
+  private keyStats(idProveedor?: number) {
+    return idProveedor
+      ? `compras:stats:prov:${idProveedor}`
+      : 'compras:stats:all';
+  }
+
+  private async invalidateComprasListsAndStats() {
+    await this.cacheUtil.invalidate({
+      patterns: ['compras:list:*', 'compras:stats:*'],
+    });
+  }
+
+  // ... (tu generarFolio y calcularTotalesDetalle se quedan igual)
+
   private async generarFolio(): Promise<string> {
     const fecha = new Date();
     const año = fecha.getFullYear();
@@ -28,14 +68,8 @@ export class ComprasService {
     const fechaStr = `${año}${mes}${dia}`;
 
     const ultimaCompra = await this.prisma.compras.findFirst({
-      where: {
-        folio_compra: {
-          startsWith: `COM-${fechaStr}`,
-        },
-      },
-      orderBy: {
-        folio_compra: 'desc',
-      },
+      where: { folio_compra: { startsWith: `COM-${fechaStr}` } },
+      orderBy: { folio_compra: 'desc' },
     });
 
     let consecutivo = 1;
@@ -50,27 +84,17 @@ export class ComprasService {
     return `COM-${fechaStr}-${String(consecutivo).padStart(4, '0')}`;
   }
 
-  /**
-   * Calcula totales del detalle de compra
-   */
   private calcularTotalesDetalle(detalle: any) {
     const cantidadPedida = Number(detalle.cantidad_pedida);
     const precioUnitario = Number(detalle.precio_unitario);
     const descuentoPorcentaje = Number(detalle.descuento_porcentaje || 0);
     const descuentoMonto = Number(detalle.descuento_monto || 0);
-
-    // Calcular subtotal antes de descuentos
     const subtotalBruto = cantidadPedida * precioUnitario;
-
-    // Aplicar descuentos
     const descuentoPorPorcentaje = (subtotalBruto * descuentoPorcentaje) / 100;
     const descuentoTotal = descuentoPorPorcentaje + descuentoMonto;
     const subtotal = subtotalBruto - descuentoTotal;
-
-    // IVA e IEPS se calculan sobre el subtotal después de descuentos
-    const ivaMonto = subtotal * 0.16; // 16% IVA
-    const iepsMonto = 0; // Por ahora sin IEPS, se puede agregar lógica por producto
-
+    const ivaMonto = subtotal * 0.16;
+    const iepsMonto = 0;
     const total = subtotal + ivaMonto + iepsMonto;
 
     return {
@@ -84,36 +108,26 @@ export class ComprasService {
   }
 
   async create(createCompraDto: CreateCompraDto) {
-    // Validar proveedor
     const proveedor = await this.prisma.proveedores.findUnique({
       where: { id_proveedor: createCompraDto.id_proveedor },
     });
-
-    if (!proveedor) {
+    if (!proveedor)
       throw new NotFoundException(
         `Proveedor con ID ${createCompraDto.id_proveedor} no encontrado`,
       );
-    }
-
-    if (!proveedor.activo) {
+    if (!proveedor.activo)
       throw new BadRequestException('El proveedor no está activo');
-    }
 
-    // Validar usuario solicitante
     const usuario = await this.prisma.usuarios.findUnique({
       where: { id_usuario: createCompraDto.id_usuario_solicita },
     });
-
-    if (!usuario) {
+    if (!usuario)
       throw new NotFoundException(
         `Usuario con ID ${createCompraDto.id_usuario_solicita} no encontrado`,
       );
-    }
 
-    // Generar folio
     const folio = await this.generarFolio();
 
-    // Calcular totales
     let subtotalCompra = 0;
     let ivaTotalCompra = 0;
     let iepsTotalCompra = 0;
@@ -143,7 +157,6 @@ export class ComprasService {
       };
     });
 
-    // Crear compra con detalle
     try {
       const compra = await this.prisma.compras.create({
         data: {
@@ -157,49 +170,35 @@ export class ComprasService {
           total: new Prisma.Decimal(totalCompra.toFixed(2)),
           estado: estado_compra.pendiente,
           observaciones: createCompraDto.observaciones,
-          compra_detalle: {
-            create: detalleConTotales,
-          },
+          compra_detalle: { create: detalleConTotales },
         },
         include: {
           proveedores: {
-            select: {
-              razon_social: true,
-              nombre_comercial: true,
-            },
+            select: { razon_social: true, nombre_comercial: true },
           },
           usuarios_compras_id_usuario_solicitaTousuarios: {
             select: {
               username: true,
-              personas: {
-                select: {
-                  nombre: true,
-                  apellido_paterno: true,
-                },
-              },
+              personas: { select: { nombre: true, apellido_paterno: true } },
             },
           },
           compra_detalle: {
             include: {
-              productos: {
-                select: {
-                  sku: true,
-                  nombre: true,
-                },
-              },
-              unidades_medida: {
-                select: {
-                  nombre: true,
-                  abreviatura: true,
-                },
-              },
+              productos: { select: { sku: true, nombre: true } },
+              unidades_medida: { select: { nombre: true, abreviatura: true } },
             },
           },
         },
       });
 
+      await this.cache.set(
+        this.keyById(compra.id_compra),
+        compra,
+        this.DEFAULT_TTL,
+      );
+      await this.invalidateComprasListsAndStats();
       return compra;
-    } catch (error) {
+    } catch (error: any) {
       if (error.code === 'P2002') {
         throw new ConflictException('Ya existe una compra con ese folio');
       }
@@ -208,130 +207,94 @@ export class ComprasService {
   }
 
   async findAll(filters?: FilterCompraDto) {
+    const listKey = this.keyList(filters);
+    const cached = await this.cache.get<any[]>(listKey);
+    if (cached) return cached;
+
     const where: Prisma.comprasWhereInput = {};
-
-    if (filters?.id_proveedor) {
-      where.id_proveedor = filters.id_proveedor;
-    }
-
-    if (filters?.id_usuario_solicita) {
+    if (filters?.id_proveedor) where.id_proveedor = filters.id_proveedor;
+    if (filters?.id_usuario_solicita)
       where.id_usuario_solicita = filters.id_usuario_solicita;
-    }
-
-    if (filters?.estado) {
-      where.estado = filters.estado;
-    }
-
+    if (filters?.estado) where.estado = filters.estado;
     if (filters?.folio_compra) {
       where.folio_compra = {
         contains: filters.folio_compra,
         mode: 'insensitive',
       };
     }
-
     if (filters?.fecha_desde || filters?.fecha_hasta) {
       where.fecha_pedido = {};
-
-      if (filters.fecha_desde) {
+      if (filters.fecha_desde)
         where.fecha_pedido.gte = new Date(filters.fecha_desde);
-      }
-
       if (filters.fecha_hasta) {
-        const fechaHasta = new Date(filters.fecha_hasta);
-        fechaHasta.setHours(23, 59, 59, 999);
-        where.fecha_pedido.lte = fechaHasta;
+        const fh = new Date(filters.fecha_hasta);
+        fh.setHours(23, 59, 59, 999);
+        where.fecha_pedido.lte = fh;
       }
     }
 
-    return await this.prisma.compras.findMany({
+    const data = await this.prisma.compras.findMany({
       where,
       include: {
-        proveedores: {
-          select: {
-            razon_social: true,
-            nombre_comercial: true,
-          },
-        },
+        proveedores: { select: { razon_social: true, nombre_comercial: true } },
         usuarios_compras_id_usuario_solicitaTousuarios: {
           select: {
             username: true,
-            personas: {
-              select: {
-                nombre: true,
-                apellido_paterno: true,
-              },
-            },
+            personas: { select: { nombre: true, apellido_paterno: true } },
           },
         },
         usuarios_compras_id_usuario_autorizaTousuarios: {
-          select: {
-            username: true,
-          },
+          select: { username: true },
         },
-        _count: {
-          select: {
-            compra_detalle: true,
-          },
-        },
+        _count: { select: { compra_detalle: true } },
       },
-      orderBy: {
-        fecha_pedido: 'desc',
-      },
+      orderBy: { fecha_pedido: 'desc' },
     });
+
+    await this.cache.set(listKey, data, this.DEFAULT_TTL);
+    return data;
   }
 
   async findOne(id: number) {
+    const key = this.keyById(id);
+    const cached = await this.cache.get<any>(key);
+    if (cached) return cached;
+
     const compra = await this.prisma.compras.findUnique({
       where: { id_compra: id },
       include: {
         proveedores: true,
         usuarios_compras_id_usuario_solicitaTousuarios: {
-          select: {
-            username: true,
-            personas: true,
-          },
+          select: { username: true, personas: true },
         },
         usuarios_compras_id_usuario_autorizaTousuarios: {
-          select: {
-            username: true,
-            personas: true,
-          },
+          select: { username: true, personas: true },
         },
         compra_detalle: {
           include: {
             productos: {
-              select: {
-                sku: true,
-                nombre: true,
-                imagen_url: true,
-              },
+              select: { sku: true, nombre: true, imagen_url: true },
             },
-            unidades_medida: {
-              select: {
-                nombre: true,
-                abreviatura: true,
-              },
-            },
+            unidades_medida: { select: { nombre: true, abreviatura: true } },
           },
         },
       },
     });
 
-    if (!compra) {
+    if (!compra)
       throw new NotFoundException(`Compra con ID ${id} no encontrada`);
-    }
 
+    await this.cache.set(key, compra, this.DEFAULT_TTL);
     return compra;
   }
 
   async update(id: number, updateCompraDto: UpdateCompraDto) {
     const compra = await this.findOne(id);
-
     if (compra.estado !== estado_compra.pendiente) {
       throw new BadRequestException('Solo se pueden editar compras pendientes');
     }
 
-    return await this.prisma.compras.update({
+    const updated = await this.prisma.compras.update({
       where: { id_compra: id },
       data: {
         id_proveedor: updateCompraDto.id_proveedor,
@@ -342,31 +305,40 @@ export class ComprasService {
       },
       include: {
         proveedores: true,
-        compra_detalle: {
-          include: {
-            productos: true,
-          },
-        },
+        compra_detalle: { include: { productos: true } },
       },
     });
+
+    await this.cacheUtil.invalidate({
+      keys: [this.keyById(id)],
+      patterns: ['compras:list:*', 'compras:stats:*'],
+    });
+
+    return updated;
   }
 
   async autorizar(id: number, idUsuarioAutoriza: number) {
     const compra = await this.findOne(id);
-
     if (compra.estado !== estado_compra.pendiente) {
       throw new BadRequestException(
         'Solo se pueden autorizar compras pendientes',
       );
     }
 
-    return await this.prisma.compras.update({
+    const updated = await this.prisma.compras.update({
       where: { id_compra: id },
       data: {
         estado: estado_compra.autorizada,
         id_usuario_autoriza: idUsuarioAutoriza,
       },
     });
+
+    await this.cacheUtil.invalidate({
+      keys: [this.keyById(id)],
+      patterns: ['compras:list:*', 'compras:stats:*'],
+    });
+
+    return updated;
   }
 
   async recepcionar(id: number, recepcionarCompraDto: RecepcionarCompraDto) {
@@ -375,25 +347,20 @@ export class ComprasService {
     if (compra.estado === estado_compra.recibida) {
       throw new BadRequestException('La compra ya fue recibida');
     }
-
     if (compra.estado === estado_compra.cancelada) {
       throw new BadRequestException(
         'No se puede recepcionar una compra cancelada',
       );
     }
 
-    // Actualizar cantidades recibidas en el detalle
     for (const item of recepcionarCompraDto.items) {
       await this.prisma.compra_detalle.update({
         where: { id_detalle: item.id_detalle },
-        data: {
-          cantidad_recibida: new Prisma.Decimal(item.cantidad_recibida),
-        },
+        data: { cantidad_recibida: new Prisma.Decimal(item.cantidad_recibida) },
       });
     }
 
-    // Actualizar compra
-    return await this.prisma.compras.update({
+    const updated = await this.prisma.compras.update({
       where: { id_compra: id },
       data: {
         estado: estado_compra.recibida,
@@ -403,39 +370,49 @@ export class ComprasService {
         observaciones:
           recepcionarCompraDto.observaciones || compra.observaciones,
       },
-      include: {
-        compra_detalle: {
-          include: {
-            productos: true,
-          },
-        },
-      },
+      include: { compra_detalle: { include: { productos: true } } },
     });
+
+    await this.cacheUtil.invalidate({
+      keys: [this.keyById(id)],
+      patterns: ['compras:list:*', 'compras:stats:*'],
+    });
+
+    return updated;
   }
 
   async cancel(id: number, cancelCompraDto: CancelCompraDto) {
     const compra = await this.findOne(id);
-
     if (compra.estado === estado_compra.cancelada) {
       throw new BadRequestException('La compra ya está cancelada');
     }
-
     if (compra.estado === estado_compra.recibida) {
       throw new BadRequestException(
         'No se puede cancelar una compra ya recibida',
       );
     }
 
-    return await this.prisma.compras.update({
+    const updated = await this.prisma.compras.update({
       where: { id_compra: id },
       data: {
         estado: estado_compra.cancelada,
         observaciones: cancelCompraDto.observaciones,
       },
     });
+
+    await this.cacheUtil.invalidate({
+      keys: [this.keyById(id)],
+      patterns: ['compras:list:*', 'compras:stats:*'],
+    });
+
+    return updated;
   }
 
   async getEstadisticas(idProveedor?: number) {
+    const key = this.keyStats(idProveedor);
+    const cached = await this.cache.get<any>(key);
+    if (cached) return cached;
+
     const where: Prisma.comprasWhereInput = idProveedor
       ? { id_proveedor: idProveedor }
       : {};
@@ -458,16 +435,11 @@ export class ComprasService {
       ]);
 
     const valorTotal = await this.prisma.compras.aggregate({
-      where: {
-        ...where,
-        estado: estado_compra.recibida,
-      },
-      _sum: {
-        total: true,
-      },
+      where: { ...where, estado: estado_compra.recibida },
+      _sum: { total: true },
     });
 
-    return {
+    const result = {
       total_compras: total,
       pendientes,
       autorizadas,
@@ -475,5 +447,8 @@ export class ComprasService {
       canceladas,
       valor_total_recibido: Number(valorTotal._sum.total || 0).toFixed(2),
     };
+
+    await this.cache.set(key, result, this.STATS_TTL);
+    return result;
   }
 }

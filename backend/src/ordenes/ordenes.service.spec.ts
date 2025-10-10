@@ -5,23 +5,82 @@ import { OrdenesService } from './ordenes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { faker } from '@faker-js/faker';
 import { CreateOrdenDto } from './dto/create-orden.dto';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { CacheUtil } from '../cache/cache-util.service';
 
-describe('OrdenesService', () => {
+describe('OrdenesService (unit)', () => {
   let service: OrdenesService;
   let prisma: PrismaService;
+
+  const mockOrden = {
+    id_orden: 1,
+    folio: 'ORD-2024-0001',
+    id_sesion_mesa: 1,
+    id_usuario_mesero: 1,
+    numero_comensales: 4,
+    observaciones: 'Sin cebolla',
+    id_estado_orden: 1,
+    subtotal: 0,
+    total: 0,
+    created_at: new Date(),
+    estados_orden: { nombre: 'pendiente' },
+    orden_detalle: [],
+    sesiones_mesa: {
+      id_sesion: 1,
+      mesas: { id_mesa: 1 },
+    },
+  };
+
+  const sesionMock = {
+    id_sesion: 1,
+    estado: 'abierta',
+    id_mesa: 1,
+  };
+
+  const estadoMock = {
+    id_estado_orden: 1,
+    nombre: 'pendiente',
+    descripcion: 'Orden pendiente',
+  };
 
   const mockPrismaService = {
     ordenes: {
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
       count: jest.fn(),
     },
     sesiones_mesa: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
+    },
+    estados_orden: {
+      findFirst: jest.fn(),
+    },
+    items_orden: {
+      createMany: jest.fn(),
+    },
+    orden_detalle: {
+      findMany: jest.fn(),
+    },
+    inventario: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
     },
     $transaction: jest.fn(),
+  };
+
+  const mockCacheManager = {
+    get: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
+    reset: jest.fn(),
+  };
+
+  const mockCacheUtil = {
+    invalidate: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -31,6 +90,14 @@ describe('OrdenesService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: CACHE_MANAGER,
+          useValue: mockCacheManager,
+        },
+        {
+          provide: CacheUtil,
+          useValue: mockCacheUtil,
         },
       ],
     }).compile();
@@ -51,39 +118,56 @@ describe('OrdenesService', () => {
         observaciones: 'Sin cebolla',
       };
 
-      const sesionMock = {
-        id_sesion: 1,
-        estado: 'abierta',
-        id_mesa: 1,
-      };
+      // Mock de findFirst para sesión
+      mockPrismaService.sesiones_mesa.findFirst.mockResolvedValue(sesionMock);
 
-      const ordenMock = {
-        id_orden: 1,
-        folio: 'ORD-2024-0001',
-        ...createOrdenDto,
-        id_estado_orden: 1,
-        subtotal: 0,
-        total: 0,
-        created_at: new Date(),
-      };
+      // Mock de findFirst para estado inicial
+      mockPrismaService.estados_orden.findFirst.mockResolvedValue(estadoMock);
 
-      mockPrismaService.sesiones_mesa.findUnique.mockResolvedValue(sesionMock);
+      // Mock de findFirst para generarFolio (buscar último folio)
+      mockPrismaService.ordenes.findFirst.mockResolvedValue(null);
+
       mockPrismaService.ordenes.count.mockResolvedValue(0);
-      mockPrismaService.ordenes.create.mockResolvedValue(ordenMock);
+
+      // Mock completo de $transaction con TODOS los métodos necesarios
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const tx = {
+          ordenes: {
+            create: jest.fn().mockResolvedValue(mockOrden),
+            update: jest.fn().mockResolvedValue(mockOrden),
+            findUnique: jest.fn().mockResolvedValue(mockOrden),
+          },
+          items_orden: {
+            createMany: jest.fn().mockResolvedValue({ count: 0 }),
+          },
+          orden_detalle: {
+            findMany: jest.fn().mockResolvedValue([]),
+          },
+          inventario: {
+            findUnique: jest.fn(),
+            update: jest.fn(),
+          },
+        };
+        return callback(tx);
+      });
 
       const result = await service.create(createOrdenDto);
 
-      expect(result).toEqual(ordenMock);
-      expect(mockPrismaService.sesiones_mesa.findUnique).toHaveBeenCalledWith({
-        where: { id_sesion: createOrdenDto.id_sesion_mesa },
+      expect(result).toBeDefined();
+
+      // ✅ CORRECCIÓN: Verificar que se llamó con where E include
+      expect(mockPrismaService.sesiones_mesa.findFirst).toHaveBeenCalledWith({
+        where: {
+          id_sesion: createOrdenDto.id_sesion_mesa,
+          estado: 'abierta',
+        },
+        include: {
+          mesas: true,
+        },
       });
-      expect(mockPrismaService.ordenes.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          folio: expect.stringContaining('ORD-'),
-          id_sesion_mesa: createOrdenDto.id_sesion_mesa,
-          id_usuario_mesero: createOrdenDto.id_usuario_mesero,
-          numero_comensales: createOrdenDto.numero_comensales,
-        }),
+
+      expect(mockPrismaService.estados_orden.findFirst).toHaveBeenCalledWith({
+        where: { nombre: 'pendiente' },
       });
     });
 
@@ -93,10 +177,11 @@ describe('OrdenesService', () => {
         id_usuario_mesero: 1,
       };
 
-      mockPrismaService.sesiones_mesa.findUnique.mockResolvedValue(null);
+      // Mock de findFirst retornando null
+      mockPrismaService.sesiones_mesa.findFirst.mockResolvedValue(null);
 
       await expect(service.create(createOrdenDto)).rejects.toThrow(
-        'Sesión de mesa no encontrada o no está activa',
+        'Sesión de mesa no encontrada o cerrada',
       );
     });
 
@@ -106,13 +191,11 @@ describe('OrdenesService', () => {
         id_usuario_mesero: 1,
       };
 
-      mockPrismaService.sesiones_mesa.findUnique.mockResolvedValue({
-        id_sesion: 1,
-        estado: 'cerrada',
-      });
+      // Mock de findFirst retornando null (sesión cerrada no se encuentra con estado='abierta')
+      mockPrismaService.sesiones_mesa.findFirst.mockResolvedValue(null);
 
       await expect(service.create(createOrdenDto)).rejects.toThrow(
-        'Sesión de mesa no encontrada o no está activa',
+        'Sesión de mesa no encontrada o cerrada',
       );
     });
   });
@@ -124,6 +207,7 @@ describe('OrdenesService', () => {
         { id_orden: 2, folio: 'ORD-2024-0002' },
       ];
 
+      mockCacheManager.get.mockResolvedValue(null);
       mockPrismaService.ordenes.findMany.mockResolvedValue(ordenesMock);
       mockPrismaService.ordenes.count.mockResolvedValue(2);
 

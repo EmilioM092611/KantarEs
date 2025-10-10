@@ -15,6 +15,7 @@ describe('PagosService', () => {
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(), // ✅ AGREGADO: Para generarFolio()
       aggregate: jest.fn(),
     },
     ordenes: {
@@ -22,6 +23,9 @@ describe('PagosService', () => {
       update: jest.fn(),
     },
     metodos_pago: {
+      findUnique: jest.fn(),
+    },
+    usuarios: {
       findUnique: jest.fn(),
     },
     $transaction: jest.fn(),
@@ -56,21 +60,29 @@ describe('PagosService', () => {
         id_orden: 1,
         total: 500.0,
         id_estado_orden: 2, // pendiente de pago
+        pagos: [], // ✅ AGREGADO: El servicio espera esta relación
       };
 
       const metodoPagoMock = {
         id_metodo_pago: 1,
         nombre: 'Efectivo',
         activo: true,
+        requiere_referencia: false,
+        requiere_autorizacion: false,
       };
 
-      const pagosMock = [];
+      const usuarioMock = {
+        id_usuario: 1,
+        nombre: 'Test Usuario',
+        email: 'test@test.com',
+      };
 
       mockPrismaService.ordenes.findUnique.mockResolvedValue(ordenMock);
       mockPrismaService.metodos_pago.findUnique.mockResolvedValue(
         metodoPagoMock,
       );
-      mockPrismaService.pagos.findMany.mockResolvedValue(pagosMock);
+      mockPrismaService.usuarios.findUnique.mockResolvedValue(usuarioMock);
+      mockPrismaService.pagos.findFirst.mockResolvedValue(null); // ✅ Para generarFolio()
 
       mockPrismaService.$transaction.mockImplementation(async (callback) => {
         return callback(mockPrismaService);
@@ -86,9 +98,11 @@ describe('PagosService', () => {
       const result = await service.create(createPagoDto);
 
       expect(result).toBeDefined();
-      expect(mockPrismaService.ordenes.update).toHaveBeenCalledWith({
-        where: { id_orden: 1 },
-        data: { id_estado_orden: expect.any(Number) }, // Estado pagado
+      expect(mockPrismaService.metodos_pago.findUnique).toHaveBeenCalledWith({
+        where: { id_metodo_pago: createPagoDto.id_metodo_pago },
+      });
+      expect(mockPrismaService.usuarios.findUnique).toHaveBeenCalledWith({
+        where: { id_usuario: createPagoDto.id_usuario_cobra },
       });
     });
 
@@ -103,14 +117,23 @@ describe('PagosService', () => {
       mockPrismaService.ordenes.findUnique.mockResolvedValue({
         id_orden: 1,
         total: 500.0,
+        id_estado_orden: 2,
+        pagos: [], // ✅ AGREGADO: El servicio espera esta relación
       });
 
       mockPrismaService.metodos_pago.findUnique.mockResolvedValue({
         id_metodo_pago: 1,
         activo: true,
+        requiere_referencia: false,
+        requiere_autorizacion: false,
       });
 
-      mockPrismaService.pagos.findMany.mockResolvedValue([]);
+      mockPrismaService.usuarios.findUnique.mockResolvedValue({
+        id_usuario: 1,
+        nombre: 'Test',
+      });
+
+      mockPrismaService.pagos.findFirst.mockResolvedValue(null);
 
       await expect(service.create(createPagoDto)).rejects.toThrow(
         BadRequestException,

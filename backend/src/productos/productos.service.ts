@@ -163,9 +163,10 @@ export class ProductosService {
     const cached = await this.cache.get<any>(key);
     if (cached) return cached;
 
+    // ✅ CORRECCIÓN: Convertir page y limit a números explícitamente
     const {
-      page = 1,
-      limit = 20,
+      page: pageParam = 1,
+      limit: limitParam = 20,
       search,
       categoria,
       activo,
@@ -173,6 +174,12 @@ export class ProductosService {
       ordenarPor = 'nombre',
       orden = 'asc',
     } = query;
+
+    // Asegurar que page y limit sean números
+    const page =
+      typeof pageParam === 'string' ? parseInt(pageParam, 10) : pageParam;
+    const limit =
+      typeof limitParam === 'string' ? parseInt(limitParam, 10) : limitParam;
 
     const skip = (page - 1) * limit;
 
@@ -195,7 +202,7 @@ export class ProductosService {
       nombre: 'nombre',
       precio: 'precio_venta',
       codigo: 'sku',
-      stock: 'nombre', // no hay stock en productos; se mantiene compat
+      stock: 'nombre',
       createdAt: 'created_at',
     };
 
@@ -207,7 +214,7 @@ export class ProductosService {
       this.prisma.productos.findMany({
         where,
         skip,
-        take: limit,
+        take: limit, // ← Ahora es número garantizado
         orderBy,
         include: {
           categorias: true,

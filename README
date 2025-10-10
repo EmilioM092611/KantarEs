@@ -86,3 +86,9 @@ pnpm dev
 -PINGa #Responderá PONG
 -KEYS cache-stats:\* #Se verán las 2 claves
 -TTL cache-stats:ping:... #segundos restantes (>0)
+
+-----------------------------Comandos para tests-----------------------------------------------
+-pnpm test:unit
+-pnpm test:integration
+-pnpm test:e2e
+-pnpm test:ci

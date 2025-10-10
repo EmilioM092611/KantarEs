@@ -7,6 +7,12 @@ import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 
+// === Agregados (hardening) ===
+import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
+import { RequestLoggerInterceptor } from './common/logging/request-logger.interceptor';
+import { PinoLogger } from 'nestjs-pino';
+// ==============================
+
 // Tracing opcional por OpenTelemetry (no falla si no está instalado).
 // Actívalo con: OTEL_TRACING_ENABLED=true y (opcional) OTEL_EXPORTER_OTLP_ENDPOINT.
 // No requiere imports fijos: usa imports dinámicos.
@@ -83,8 +89,17 @@ export async function bootstrap() {
     }),
   );
 
-  // Filtro Prisma → HTTP
+  // Filtro Prisma → HTTP (tu filtro existente)
   app.useGlobalFilters(new PrismaExceptionFilter());
+
+  // === Agregados (hardening) ===
+  // Filtro global de HTTP uniforme (envelope con code/requestId/timestamp/path)
+  app.useGlobalFilters(new GlobalHttpExceptionFilter());
+
+  // Interceptor de logging de solicitudes/respuestas/errores con correlación (Pino)
+  const pinoLogger = await app.resolve(PinoLogger);
+  app.useGlobalInterceptors(new RequestLoggerInterceptor(pinoLogger));
+  // ==============================
 
   // ===== Swagger en /api =====
   const config = new DocumentBuilder()

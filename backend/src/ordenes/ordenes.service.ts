@@ -9,8 +9,11 @@ import {
   ForbiddenException,
   Logger,
   Inject,
+  HttpStatus,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { throwApiError } from '../common/errors/error.util';
+import { ErrorCode } from '../common/errors/error-codes';
 import { CreateOrdenDto, CreateOrdenItemDto } from './dto/create-orden.dto'; // CORREGIDO: Importar ambos
 import { UpdateOrdenDto } from './dto/update-orden.dto';
 import { AddItemDto } from './dto/add-item.dto';
@@ -124,6 +127,12 @@ export class OrdenesService {
   // ========== CREAR ORDEN ==========
   // ========== CREAR ORDEN ==========
   async create(createOrdenDto: CreateOrdenDto, userId: number) {
+    this.logger.log({
+      op: 'ordenes.create',
+      dto: createOrdenDto,
+      userId,
+    } as any);
+
     // Verificar que la sesión existe y está abierta
     const sesion = await this.prisma.sesiones_mesa.findFirst({
       where: {
@@ -134,7 +143,11 @@ export class OrdenesService {
     });
 
     if (!sesion) {
-      throw new NotFoundException('Sesión de mesa no encontrada o cerrada');
+      throwApiError({
+        code: ErrorCode.ORD_NOT_FOUND,
+        message: 'Sesión de mesa no encontrada o cerrada',
+        status: HttpStatus.NOT_FOUND,
+      });
     }
 
     // Generar folio único
@@ -145,7 +158,11 @@ export class OrdenesService {
       where: { nombre: 'pendiente' },
     });
     if (!estadoInicial) {
-      throw new BadRequestException('Estado inicial no configurado');
+      throwApiError({
+        code: ErrorCode.ORD_INVALID_STATE,
+        message: 'Estado inicial no configurado',
+        status: HttpStatus.BAD_REQUEST,
+      });
     }
 
     // Crear la orden con transacción
@@ -384,7 +401,11 @@ export class OrdenesService {
     });
 
     if (!orden) {
-      throw new NotFoundException(`Orden con ID ${id} no encontrada`);
+      throwApiError({
+        code: ErrorCode.ORD_NOT_FOUND,
+        message: `Orden con ID ${id} no encontrada`,
+        status: HttpStatus.NOT_FOUND,
+      });
     }
 
     await this.cache.set(key, orden, this.DETAIL_TTL);
@@ -447,6 +468,8 @@ export class OrdenesService {
 
   // ========== AGREGAR ITEM A ORDEN ==========
   async addItem(ordenId: number, addItemDto: AddItemDto) {
+    this.logger.log({ op: 'ordenes.addItem', ordenId, addItemDto } as any);
+
     const orden = await this.findOne(ordenId);
 
     // Verificar que la orden no esté pagada o cancelada
@@ -524,6 +547,12 @@ export class OrdenesService {
     itemId: number,
     updateItemDto: UpdateItemDto,
   ) {
+    this.logger.log({
+      op: 'ordenes.updateItem',
+      ordenId,
+      idDetalle: (updateItemDto as any)?.id_detalle,
+    } as any);
+
     const orden = await this.findOne(ordenId);
 
     if (['pagada', 'cancelada'].includes(orden.estados_orden.nombre)) {
@@ -540,11 +569,19 @@ export class OrdenesService {
     });
 
     if (!item) {
-      throw new NotFoundException('Item no encontrado en esta orden');
+      throwApiError({
+        code: ErrorCode.ORD_ITEM_INVALID,
+        message: 'Item no encontrado en esta orden',
+        status: HttpStatus.NOT_FOUND,
+      });
     }
 
     if (item.estado === 'cancelado') {
-      throw new BadRequestException('No se puede modificar un item cancelado');
+      throwApiError({
+        code: ErrorCode.ORD_INVALID_STATE,
+        message: 'No se puede modificar un item cancelado',
+        status: HttpStatus.BAD_REQUEST,
+      });
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -608,6 +645,8 @@ export class OrdenesService {
 
   // ========== ELIMINAR ITEM ==========
   async removeItem(ordenId: number, itemId: number) {
+    this.logger.log({ op: 'ordenes.removeItem', ordenId, idDetalle } as any);
+
     const orden = await this.findOne(ordenId);
 
     if (['pagada', 'cancelada'].includes(orden.estados_orden.nombre)) {
@@ -624,11 +663,19 @@ export class OrdenesService {
     });
 
     if (!item) {
-      throw new NotFoundException('Item no encontrado en esta orden');
+      throwApiError({
+        code: ErrorCode.ORD_ITEM_INVALID,
+        message: 'Item no encontrado en esta orden',
+        status: HttpStatus.NOT_FOUND,
+      });
     }
 
     if (item.estado !== 'pendiente') {
-      throw new BadRequestException('Solo se pueden eliminar items pendientes');
+      throwApiError({
+        code: ErrorCode.ORD_INVALID_STATE,
+        message: 'Solo se pueden eliminar items pendientes',
+        status: HttpStatus.BAD_REQUEST,
+      });
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -652,6 +699,12 @@ export class OrdenesService {
 
   // ========== CAMBIAR ESTADO DE ORDEN ==========
   async cambiarEstado(id: number, dto: CambiarEstadoOrdenDto, userId: number) {
+    this.logger.log({
+      op: 'ordenes.cambiarEstado',
+      ordenId,
+      nuevoEstado,
+    } as any);
+
     const orden = await this.findOne(id);
 
     // invalidar el detalle por si se usa dentro de la transacción
@@ -663,7 +716,11 @@ export class OrdenesService {
     });
 
     if (!nuevoEstado) {
-      throw new BadRequestException('Estado no válido');
+      throwApiError({
+        code: ErrorCode.ORD_INVALID_STATE,
+        message: 'Estado no válido',
+        status: HttpStatus.BAD_REQUEST,
+      });
     }
 
     // Validar transición de estado (implementar lógica según reglas de negocio)
@@ -756,6 +813,12 @@ export class OrdenesService {
     itemId: number,
     dto: CambiarEstadoItemDto,
   ) {
+    this.logger.log({
+      op: 'ordenes.cambiarEstadoItem',
+      idDetalle,
+      nuevoEstado,
+    } as any);
+
     const item = await this.prisma.orden_detalle.findFirst({
       where: {
         id_detalle: itemId,
@@ -764,7 +827,11 @@ export class OrdenesService {
     });
 
     if (!item) {
-      throw new NotFoundException('Item no encontrado');
+      throwApiError({
+        code: ErrorCode.ORD_ITEM_INVALID,
+        message: 'Item no encontrado',
+        status: HttpStatus.NOT_FOUND,
+      });
     }
 
     // Validar transición de estado
@@ -824,7 +891,11 @@ export class OrdenesService {
       });
 
       if (!promocion) {
-        throw new BadRequestException('Promoción no válida o inactiva');
+        throwApiError({
+          code: ErrorCode.ORD_ITEM_INVALID,
+          message: 'Promoción no válida o inactiva',
+          status: HttpStatus.BAD_REQUEST,
+        });
       }
     }
 
@@ -1137,7 +1208,11 @@ export class OrdenesService {
     });
 
     if (!orden) {
-      throw new NotFoundException('Orden no encontrada');
+      throwApiError({
+        code: ErrorCode.ORD_NOT_FOUND,
+        message: 'Orden no encontrada',
+        status: HttpStatus.NOT_FOUND,
+      });
     }
 
     // Sumar totales de items

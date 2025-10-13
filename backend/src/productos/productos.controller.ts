@@ -39,15 +39,13 @@ export class ProductosController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Obtener todos los productos' })
-  async findAll(@Query() q: QueryProductosDto) {
-    try {
-      return await this.productosService.findAll(q);
-    } catch (e) {
-      // DEBUG: imprime detalle real en consola
-      console.error('GET /productos ERROR:', e);
-      throw e;
-    }
+  @ApiOperation({ summary: 'Listar todos los productos' })
+  async findAll(@Query() query: QueryProductosDto) {
+    const result = await this.productosService.findAll(query);
+    return {
+      success: true,
+      ...result,
+    };
   }
 
   @Get('activos')

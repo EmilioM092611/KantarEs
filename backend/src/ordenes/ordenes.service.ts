@@ -8,12 +8,8 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
-  Inject,
-  HttpStatus,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { throwApiError } from '../common/errors/error.util';
-import { ErrorCode } from '../common/errors/error-codes';
 import { CreateOrdenDto, CreateOrdenItemDto } from './dto/create-orden.dto'; // CORREGIDO: Importar ambos
 import { UpdateOrdenDto } from './dto/update-orden.dto';
 import { AddItemDto } from './dto/add-item.dto';
@@ -32,122 +28,27 @@ import {
 } from './types/orden.types';
 import { estado_orden_detalle, Prisma } from '@prisma/client';
 
-// ==== Cache ====
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import type { Cache } from 'cache-manager';
-import { CacheUtil } from '../cache/cache-util.service';
-
 @Injectable()
 export class OrdenesService {
   private readonly logger = new Logger(OrdenesService.name);
 
-  // TTLs
-  private readonly LIST_TTL = 60_000; // 60s para listados con filtros
-  private readonly DETAIL_TTL = 90_000; // 90s para detalle por id
-  private readonly BOARD_TTL = 20_000; // 20s para vistas "tablero" (cocina/pendientes/items por servir)
+  constructor(private readonly prisma: PrismaService) {}
 
-  constructor(
-    private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private readonly cache: Cache,
-    private readonly cacheUtil: CacheUtil,
-  ) {}
-
-  // ===== Helpers de claves =====
-  private keyById(id: number) {
-    return `ordenes:id:${id}`;
-  }
-  private keyList(q: QueryOrdenesDto) {
-    const safe = {
-      id_sesion_mesa: q?.id_sesion_mesa ?? null,
-      id_usuario_mesero: q?.id_usuario_mesero ?? null,
-      id_estado_orden: q?.id_estado_orden ?? null,
-      id_mesa: q?.id_mesa ?? null,
-      para_llevar: q?.para_llevar ?? null,
-      folio: q?.folio ? String(q.folio).toLowerCase() : null,
-      fecha_desde: q?.fecha_desde
-        ? new Date(q.fecha_desde).toISOString()
-        : null,
-      fecha_hasta: q?.fecha_hasta
-        ? new Date(q.fecha_hasta).toISOString()
-        : null,
-      limit: q?.limit ?? 50,
-      offset: q?.offset ?? 0,
-    };
-    return `ordenes:list:${JSON.stringify(safe)}`;
-  }
-  private keySesion(sesionId: number) {
-    return `ordenes:sesion:${sesionId}`;
-  }
-  private keyMesaActiva(mesaId: number) {
-    return `ordenes:mesa-activa:${mesaId}`;
-  }
-  private keyCocina() {
-    return `ordenes:cocina`;
-  }
-  private keyPendientesPago() {
-    return `ordenes:pendientes-pago`;
-  }
-  private keyItemsPorServir() {
-    return `ordenes:items-por-servir`;
-  }
-
-  private async invalidateListsAndBoards() {
-    await this.cacheUtil.invalidate({
-      patterns: [
-        'ordenes:list:*',
-        'ordenes:cocina',
-        'ordenes:pendientes-pago',
-        'ordenes:items-por-servir',
-      ],
-    });
-  }
-
-  private async invalidatePerOrdenContext(opts: {
-    idOrden?: number;
-    idSesion?: number;
-    idMesa?: number;
-  }) {
-    const keys: string[] = [];
-    const patterns: string[] = ['ordenes:list:*'];
-
-    if (opts.idOrden) keys.push(this.keyById(opts.idOrden));
-    if (opts.idSesion) keys.push(this.keySesion(opts.idSesion));
-    if (opts.idMesa) keys.push(this.keyMesaActiva(opts.idMesa));
-
-    // Vistas de tablero
-    keys.push(
-      this.keyCocina(),
-      this.keyPendientesPago(),
-      this.keyItemsPorServir(),
-    );
-
-    await this.cacheUtil.invalidate({ keys, patterns });
-  }
-
-  // ========== CREAR ORDEN ==========
   // ========== CREAR ORDEN ==========
   async create(createOrdenDto: CreateOrdenDto, userId: number) {
-    this.logger.log({
-      op: 'ordenes.create',
-      dto: createOrdenDto,
-      userId,
-    } as any);
-
     // Verificar que la sesión existe y está abierta
     const sesion = await this.prisma.sesiones_mesa.findFirst({
       where: {
         id_sesion: createOrdenDto.id_sesion_mesa,
         estado: 'abierta',
       },
-      include: { mesas: true },
+      include: {
+        mesas: true,
+      },
     });
 
     if (!sesion) {
-      throwApiError({
-        code: ErrorCode.ORD_NOT_FOUND,
-        message: 'Sesión de mesa no encontrada o cerrada',
-        status: HttpStatus.NOT_FOUND,
-      });
+      throw new NotFoundException('Sesión de mesa no encontrada o cerrada');
     }
 
     // Generar folio único
@@ -157,16 +58,13 @@ export class OrdenesService {
     const estadoInicial = await this.prisma.estados_orden.findFirst({
       where: { nombre: 'pendiente' },
     });
+
     if (!estadoInicial) {
-      throwApiError({
-        code: ErrorCode.ORD_INVALID_STATE,
-        message: 'Estado inicial no configurado',
-        status: HttpStatus.BAD_REQUEST,
-      });
+      throw new BadRequestException('Estado inicial no configurado');
     }
 
     // Crear la orden con transacción
-    const created = await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       // Crear orden principal
       const orden = await tx.ordenes.create({
         data: {
@@ -198,39 +96,24 @@ export class OrdenesService {
       const ordenActualizada = await this.recalcularTotales(tx, orden.id_orden);
 
       // Obtener orden completa con relaciones
-      const full = await tx.ordenes.findUnique({
+      return tx.ordenes.findUnique({
         where: { id_orden: ordenActualizada.id_orden },
         include: {
           estados_orden: true,
-          orden_detalle: { include: { productos: true } },
-          sesiones_mesa: { include: { mesas: true } },
+          orden_detalle: {
+            include: {
+              productos: true,
+            },
+          },
+          sesiones_mesa: {
+            include: {
+              mesas: true,
+            },
+          },
         },
       });
-
-      // Si por alguna razón no regresara, abortamos
-      if (!full) {
-        throw new NotFoundException(
-          'No se pudo recuperar la orden recién creada',
-        );
-      }
-      return full;
     });
-
-    // A partir de aquí, `created` es no-null
-    await this.cache.set(
-      this.keyById(created.id_orden),
-      created,
-      this.DETAIL_TTL,
-    );
-    await this.invalidatePerOrdenContext({
-      idOrden: created.id_orden,
-      idSesion: created.id_sesion_mesa,
-      idMesa: created.sesiones_mesa?.mesas?.id_mesa,
-    });
-
-    return created;
   }
-
   async update(id: number, updateOrdenDto: UpdateOrdenDto) {
     const orden = await this.findOne(id);
 
@@ -240,7 +123,7 @@ export class OrdenesService {
       );
     }
 
-    const updated = await this.prisma.ordenes.update({
+    return this.prisma.ordenes.update({
       where: { id_orden: id },
       data: {
         observaciones: updateOrdenDto.observaciones,
@@ -256,22 +139,10 @@ export class OrdenesService {
         },
       },
     });
-
-    await this.cache.set(this.keyById(id), updated, this.DETAIL_TTL);
-    await this.invalidatePerOrdenContext({
-      idOrden: id,
-      idSesion: updated.id_sesion_mesa,
-    });
-
-    return updated;
   }
 
   // ========== LISTAR ÓRDENES ==========
   async findAll(query: QueryOrdenesDto) {
-    const listKey = this.keyList(query);
-    const cached = await this.cache.get<any>(listKey);
-    if (cached) return cached;
-
     const where: Prisma.ordenesWhereInput = {};
 
     if (query.id_sesion_mesa) {
@@ -347,23 +218,16 @@ export class OrdenesService {
       this.prisma.ordenes.count({ where }),
     ]);
 
-    const result = {
+    return {
       data: ordenes,
       total,
       limit: query.limit || 50,
       offset: query.offset || 0,
     };
-
-    await this.cache.set(listKey, result, this.LIST_TTL);
-    return result;
   }
 
   // ========== OBTENER ORDEN POR ID ==========
   async findOne(id: number) {
-    const key = this.keyById(id);
-    const cached = await this.cache.get<any>(key);
-    if (cached) return cached;
-
     const orden = await this.prisma.ordenes.findUnique({
       where: { id_orden: id },
       include: {
@@ -401,24 +265,15 @@ export class OrdenesService {
     });
 
     if (!orden) {
-      throwApiError({
-        code: ErrorCode.ORD_NOT_FOUND,
-        message: `Orden con ID ${id} no encontrada`,
-        status: HttpStatus.NOT_FOUND,
-      });
+      throw new NotFoundException(`Orden con ID ${id} no encontrada`);
     }
 
-    await this.cache.set(key, orden, this.DETAIL_TTL);
     return orden;
   }
 
   // ========== ÓRDENES POR SESIÓN ==========
   async findBySesion(sesionId: number) {
-    const key = this.keySesion(sesionId);
-    const cached = await this.cache.get<any[]>(key);
-    if (cached) return cached;
-
-    const data = await this.prisma.ordenes.findMany({
+    return this.prisma.ordenes.findMany({
       where: { id_sesion_mesa: sesionId },
       include: {
         estados_orden: true,
@@ -428,18 +283,11 @@ export class OrdenesService {
       },
       orderBy: { fecha_hora_orden: 'desc' },
     });
-
-    await this.cache.set(key, data, this.LIST_TTL);
-    return data;
   }
 
   // ========== ÓRDENES ACTIVAS POR MESA ==========
   async findByMesaActiva(mesaId: number) {
-    const key = this.keyMesaActiva(mesaId);
-    const cached = await this.cache.get<any[]>(key);
-    if (cached) return cached;
-
-    const data = await this.prisma.ordenes.findMany({
+    return this.prisma.ordenes.findMany({
       where: {
         sesiones_mesa: {
           id_mesa: mesaId,
@@ -461,15 +309,10 @@ export class OrdenesService {
       },
       orderBy: { fecha_hora_orden: 'desc' },
     });
-
-    await this.cache.set(key, data, this.BOARD_TTL);
-    return data;
   }
 
   // ========== AGREGAR ITEM A ORDEN ==========
   async addItem(ordenId: number, addItemDto: AddItemDto) {
-    this.logger.log({ op: 'ordenes.addItem', ordenId, addItemDto } as any);
-
     const orden = await this.findOne(ordenId);
 
     // Verificar que la orden no esté pagada o cancelada
@@ -479,7 +322,7 @@ export class OrdenesService {
       );
     }
 
-    const result = await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const item = await this.agregarItemInterno(tx, ordenId, addItemDto);
       await this.recalcularTotales(tx, ordenId);
 
@@ -490,14 +333,6 @@ export class OrdenesService {
         },
       });
     });
-
-    await this.invalidatePerOrdenContext({
-      idOrden: ordenId,
-      idSesion: orden.id_sesion_mesa,
-      idMesa: orden.sesiones_mesa?.mesas?.id_mesa,
-    });
-
-    return result;
   }
 
   // ========== AGREGAR MÚLTIPLES ITEMS ==========
@@ -510,7 +345,7 @@ export class OrdenesService {
       );
     }
 
-    const result = await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const itemIds: number[] = []; // CORREGIDO: Tipo explícito
 
       for (const itemDto of dto.items) {
@@ -531,14 +366,6 @@ export class OrdenesService {
         },
       });
     });
-
-    await this.invalidatePerOrdenContext({
-      idOrden: ordenId,
-      idSesion: orden.id_sesion_mesa,
-      idMesa: orden.sesiones_mesa?.mesas?.id_mesa,
-    });
-
-    return result;
   }
 
   // ========== ACTUALIZAR ITEM ==========
@@ -547,12 +374,6 @@ export class OrdenesService {
     itemId: number,
     updateItemDto: UpdateItemDto,
   ) {
-    this.logger.log({
-      op: 'ordenes.updateItem',
-      ordenId,
-      idDetalle: (updateItemDto as any)?.id_detalle,
-    } as any);
-
     const orden = await this.findOne(ordenId);
 
     if (['pagada', 'cancelada'].includes(orden.estados_orden.nombre)) {
@@ -569,22 +390,14 @@ export class OrdenesService {
     });
 
     if (!item) {
-      throwApiError({
-        code: ErrorCode.ORD_ITEM_INVALID,
-        message: 'Item no encontrado en esta orden',
-        status: HttpStatus.NOT_FOUND,
-      });
+      throw new NotFoundException('Item no encontrado en esta orden');
     }
 
     if (item.estado === 'cancelado') {
-      throwApiError({
-        code: ErrorCode.ORD_INVALID_STATE,
-        message: 'No se puede modificar un item cancelado',
-        status: HttpStatus.BAD_REQUEST,
-      });
+      throw new BadRequestException('No se puede modificar un item cancelado');
     }
 
-    const result = await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       // Actualizar item
       const itemActualizado = await tx.orden_detalle.update({
         where: { id_detalle: itemId },
@@ -633,20 +446,10 @@ export class OrdenesService {
         include: { productos: true },
       });
     });
-
-    await this.invalidatePerOrdenContext({
-      idOrden: ordenId,
-      idSesion: orden.id_sesion_mesa,
-      idMesa: orden.sesiones_mesa?.mesas?.id_mesa,
-    });
-
-    return result;
   }
 
   // ========== ELIMINAR ITEM ==========
   async removeItem(ordenId: number, itemId: number) {
-    this.logger.log({ op: 'ordenes.removeItem', ordenId, idDetalle } as any);
-
     const orden = await this.findOne(ordenId);
 
     if (['pagada', 'cancelada'].includes(orden.estados_orden.nombre)) {
@@ -663,22 +466,14 @@ export class OrdenesService {
     });
 
     if (!item) {
-      throwApiError({
-        code: ErrorCode.ORD_ITEM_INVALID,
-        message: 'Item no encontrado en esta orden',
-        status: HttpStatus.NOT_FOUND,
-      });
+      throw new NotFoundException('Item no encontrado en esta orden');
     }
 
     if (item.estado !== 'pendiente') {
-      throwApiError({
-        code: ErrorCode.ORD_INVALID_STATE,
-        message: 'Solo se pueden eliminar items pendientes',
-        status: HttpStatus.BAD_REQUEST,
-      });
+      throw new BadRequestException('Solo se pueden eliminar items pendientes');
     }
 
-    const result = await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       await tx.orden_detalle.delete({
         where: { id_detalle: itemId },
       });
@@ -687,28 +482,11 @@ export class OrdenesService {
 
       return { message: 'Item eliminado exitosamente' };
     });
-
-    await this.invalidatePerOrdenContext({
-      idOrden: ordenId,
-      idSesion: orden.id_sesion_mesa,
-      idMesa: orden.sesiones_mesa?.mesas?.id_mesa,
-    });
-
-    return result;
   }
 
   // ========== CAMBIAR ESTADO DE ORDEN ==========
   async cambiarEstado(id: number, dto: CambiarEstadoOrdenDto, userId: number) {
-    this.logger.log({
-      op: 'ordenes.cambiarEstado',
-      ordenId,
-      nuevoEstado,
-    } as any);
-
     const orden = await this.findOne(id);
-
-    // invalidar el detalle por si se usa dentro de la transacción
-    await this.cacheUtil.invalidate({ keys: [this.keyById(id)] });
 
     // Verificar que el estado existe
     const nuevoEstado = await this.prisma.estados_orden.findUnique({
@@ -716,11 +494,7 @@ export class OrdenesService {
     });
 
     if (!nuevoEstado) {
-      throwApiError({
-        code: ErrorCode.ORD_INVALID_STATE,
-        message: 'Estado no válido',
-        status: HttpStatus.BAD_REQUEST,
-      });
+      throw new BadRequestException('Estado no válido');
     }
 
     // Validar transición de estado (implementar lógica según reglas de negocio)
@@ -735,7 +509,7 @@ export class OrdenesService {
       );
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       // Actualizar estado
       const ordenActualizada = await tx.ordenes.update({
         where: { id_orden: id },
@@ -782,29 +556,8 @@ export class OrdenesService {
         await this.afectarInventario(tx, id, 'entrada');
       }
 
-      return ordenActualizada;
+      return this.findOne(id);
     });
-
-    // Invalidaciones (incluye vistas de tablero)
-    await this.invalidatePerOrdenContext({
-      idOrden: id,
-      idSesion: orden.id_sesion_mesa,
-      idMesa: orden.sesiones_mesa?.mesas?.id_mesa,
-    });
-
-    // Invalidación cruzada si hubo impacto en inventario (confirmada/cancelada)
-    if (
-      nuevoEstado.nombre === 'confirmada' ||
-      nuevoEstado.nombre === 'cancelada'
-    ) {
-      await this.cacheUtil.invalidate({
-        patterns: ['inventario:*'],
-        keys: ['productos:stats'],
-      });
-    }
-
-    // devolver detalle fresco
-    return this.findOne(id);
   }
 
   // ========== CAMBIAR ESTADO DE ITEM ==========
@@ -813,12 +566,6 @@ export class OrdenesService {
     itemId: number,
     dto: CambiarEstadoItemDto,
   ) {
-    this.logger.log({
-      op: 'ordenes.cambiarEstadoItem',
-      idDetalle,
-      nuevoEstado,
-    } as any);
-
     const item = await this.prisma.orden_detalle.findFirst({
       where: {
         id_detalle: itemId,
@@ -827,11 +574,7 @@ export class OrdenesService {
     });
 
     if (!item) {
-      throwApiError({
-        code: ErrorCode.ORD_ITEM_INVALID,
-        message: 'Item no encontrado',
-        status: HttpStatus.NOT_FOUND,
-      });
+      throw new NotFoundException('Item no encontrado');
     }
 
     // Validar transición de estado
@@ -841,7 +584,7 @@ export class OrdenesService {
       );
     }
 
-    const updated = await this.prisma.orden_detalle.update({
+    return this.prisma.orden_detalle.update({
       where: { id_detalle: itemId },
       data: {
         estado: dto.estado,
@@ -860,13 +603,6 @@ export class OrdenesService {
         productos: true,
       },
     });
-
-    // Invalidar vistas relacionadas
-    await this.invalidatePerOrdenContext({
-      idOrden: ordenId,
-    });
-
-    return updated;
   }
 
   // ========== APLICAR DESCUENTO ==========
@@ -891,15 +627,11 @@ export class OrdenesService {
       });
 
       if (!promocion) {
-        throwApiError({
-          code: ErrorCode.ORD_ITEM_INVALID,
-          message: 'Promoción no válida o inactiva',
-          status: HttpStatus.BAD_REQUEST,
-        });
+        throw new BadRequestException('Promoción no válida o inactiva');
       }
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       await tx.ordenes.update({
         where: { id_orden: id },
         data: {
@@ -915,11 +647,6 @@ export class OrdenesService {
 
       return this.recalcularTotales(tx, id);
     });
-
-    await this.cache.set(this.keyById(id), updated, this.DETAIL_TTL);
-    await this.invalidateListsAndBoards();
-
-    return updated;
   }
 
   // ========== APLICAR PROPINA ==========
@@ -932,7 +659,7 @@ export class OrdenesService {
       );
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       await tx.ordenes.update({
         where: { id_orden: id },
         data: {
@@ -942,20 +669,11 @@ export class OrdenesService {
 
       return this.recalcularTotales(tx, id);
     });
-
-    await this.cache.set(this.keyById(id), updated, this.DETAIL_TTL);
-    await this.invalidateListsAndBoards();
-
-    return updated;
   }
 
   // ========== VISTA DE COCINA ==========
   async getOrdenesCocina() {
-    const key = this.keyCocina();
-    const cached = await this.cache.get<any[]>(key);
-    if (cached) return cached;
-
-    const data = await this.prisma.ordenes.findMany({
+    return this.prisma.ordenes.findMany({
       where: {
         estados_orden: {
           nombre: {
@@ -991,18 +709,11 @@ export class OrdenesService {
       },
       orderBy: { fecha_hora_orden: 'asc' },
     });
-
-    await this.cache.set(key, data, this.BOARD_TTL);
-    return data;
   }
 
   // ========== ÓRDENES PENDIENTES DE PAGO ==========
   async getOrdenesPendientes() {
-    const key = this.keyPendientesPago();
-    const cached = await this.cache.get<any[]>(key);
-    if (cached) return cached;
-
-    const data = await this.prisma.ordenes.findMany({
+    return this.prisma.ordenes.findMany({
       where: {
         estados_orden: {
           nombre: {
@@ -1022,18 +733,11 @@ export class OrdenesService {
       },
       orderBy: { fecha_hora_orden: 'asc' },
     });
-
-    await this.cache.set(key, data, this.BOARD_TTL);
-    return data;
   }
 
   // ========== ITEMS POR SERVIR ==========
   async getItemsPorServir() {
-    const key = this.keyItemsPorServir();
-    const cached = await this.cache.get<any[]>(key);
-    if (cached) return cached;
-
-    const data = await this.prisma.orden_detalle.findMany({
+    return this.prisma.orden_detalle.findMany({
       where: {
         estado: 'listo',
       },
@@ -1051,9 +755,6 @@ export class OrdenesService {
       },
       orderBy: { updated_at: 'asc' },
     });
-
-    await this.cache.set(key, data, this.BOARD_TTL);
-    return data;
   }
 
   // ========== MÉTODOS AUXILIARES PRIVADOS ==========
@@ -1208,11 +909,7 @@ export class OrdenesService {
     });
 
     if (!orden) {
-      throwApiError({
-        code: ErrorCode.ORD_NOT_FOUND,
-        message: 'Orden no encontrada',
-        status: HttpStatus.NOT_FOUND,
-      });
+      throw new NotFoundException('Orden no encontrada');
     }
 
     // Sumar totales de items

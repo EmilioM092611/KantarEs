@@ -3,97 +3,48 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
-  Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductoDto } from './dto/create-producto.dto';
 import { UpdateProductoDto } from './dto/update-producto.dto';
 import { QueryProductosDto } from './dto/query-productos.dto';
 import { Prisma } from '@prisma/client';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import type { Cache } from 'cache-manager';
-import { CacheUtil } from '../cache/cache-util.service';
 
 @Injectable()
 export class ProductosService {
-  constructor(
-    private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private readonly cache: Cache,
-    private readonly cacheUtil: CacheUtil,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  // TTLs (ms)
-  private readonly DEFAULT_TTL = 900_000; // 15 min para list/detalle
-  private readonly SEARCH_TTL = 30_000; // 30s para búsquedas
-  private readonly STATS_TTL = 120_000; // 2 min para estadísticas
-
-  // ---------- Keys ----------
-  private keyList(q: QueryProductosDto) {
-    const {
-      page = 1,
-      limit = 20,
-      search = null,
-      categoria = null,
-      activo = null,
-      disponible = null,
-      ordenarPor = 'nombre',
-      orden = 'asc',
-    } = q || {};
-    const safe = {
-      page,
-      limit,
-      search,
-      categoria,
-      activo,
-      disponible,
-      ordenarPor,
-      orden,
-    };
-    return `productos:list:${JSON.stringify(safe)}`;
-  }
-  private keyById(id: number) {
-    return `productos:id:${id}`;
-  }
-  private keySearch(term: string) {
-    return `productos:search:${(term ?? '').toLowerCase()}`;
-  }
-  private keyStats() {
-    return 'productos:stats';
-  }
-
-  private async invalidateListsAndDerived() {
-    await this.cacheUtil.invalidate({
-      patterns: ['productos:list:*', 'productos:search:*'],
-      keys: [this.keyStats()],
-    });
-  }
-
-  // ---------- CREATE ----------
   async create(createProductoDto: CreateProductoDto) {
-    // SKU único
+    // Verificar SKU único
     const existingProduct = await this.prisma.productos.findUnique({
-      where: { sku: createProductoDto.codigo },
+      where: { sku: createProductoDto.codigo }, // Mapear codigo a sku
     });
+
     if (existingProduct) {
       throw new ConflictException(
         `El código ${createProductoDto.codigo} ya está en uso`,
       );
     }
 
-    // Categoría existente
+    // Verificar que la categoría existe
     const categoria = await this.prisma.categorias.findUnique({
-      where: { id_categoria: createProductoDto.id_tipo_producto },
+      where: { id_categoria: createProductoDto.id_tipo_producto }, // Usar id_categoria
     });
-    if (!categoria) throw new BadRequestException('La categoría no existe');
 
-    // Unidad de medida existente
+    if (!categoria) {
+      throw new BadRequestException('La categoría no existe');
+    }
+
+    // Verificar que la unidad de medida existe
     const unidadMedida = await this.prisma.unidades_medida.findUnique({
       where: { id_unidad: createProductoDto.id_unidad_medida },
     });
-    if (!unidadMedida)
-      throw new BadRequestException('La unidad de medida no existe');
 
-    // Validar stock min/max
+    if (!unidadMedida) {
+      throw new BadRequestException('La unidad de medida no existe');
+    }
+
+    // Validar stock mínimo y máximo
     if (
       createProductoDto.stock_minimo &&
       createProductoDto.stock_maximo &&
@@ -104,13 +55,13 @@ export class ProductosService {
       );
     }
 
-    // Crear
+    // Crear el producto
     const producto = await this.prisma.productos.create({
       data: {
-        sku: createProductoDto.codigo,
+        sku: createProductoDto.codigo, // Mapear codigo a sku
         nombre: createProductoDto.nombre,
         descripcion: createProductoDto.descripcion,
-        id_categoria: createProductoDto.id_tipo_producto,
+        id_categoria: createProductoDto.id_tipo_producto, // Mapear id_tipo_producto a id_categoria
         id_unidad_medida: createProductoDto.id_unidad_medida,
         precio_venta: new Prisma.Decimal(createProductoDto.precio_venta),
         costo_promedio: createProductoDto.costo
@@ -132,6 +83,7 @@ export class ProductosService {
       },
     });
 
+    // Si necesitas crear el inventario inicial
     if (createProductoDto.stock_minimo || createProductoDto.stock_maximo) {
       await this.prisma.inventario.create({
         data: {
@@ -148,25 +100,13 @@ export class ProductosService {
       });
     }
 
-    await this.cache.set(
-      this.keyById(producto.id_producto),
-      producto,
-      this.DEFAULT_TTL,
-    );
-    await this.invalidateListsAndDerived();
     return producto;
   }
 
-  // ---------- LIST ----------
   async findAll(query: QueryProductosDto) {
-    const key = this.keyList(query);
-    const cached = await this.cache.get<any>(key);
-    if (cached) return cached;
-
-    // ✅ CORRECCIÓN: Convertir page y limit a números explícitamente
     const {
-      page: pageParam = 1,
-      limit: limitParam = 20,
+      page = 1,
+      limit = 20,
       search,
       categoria,
       activo,
@@ -175,57 +115,52 @@ export class ProductosService {
       orden = 'asc',
     } = query;
 
-    // Asegurar que page y limit sean números
-    const page =
-      typeof pageParam === 'string' ? parseInt(pageParam, 10) : pageParam;
-    const limit =
-      typeof limitParam === 'string' ? parseInt(limitParam, 10) : limitParam;
-
     const skip = (page - 1) * limit;
 
     const where: Prisma.productosWhereInput = {
       ...(search && {
         OR: [
           { nombre: { contains: search, mode: 'insensitive' } },
-          { sku: { contains: search, mode: 'insensitive' } },
+          { sku: { contains: search, mode: 'insensitive' } }, // Usar sku en vez de codigo
           { descripcion: { contains: search, mode: 'insensitive' } },
         ],
       }),
-      ...(categoria && { id_categoria: categoria }),
-      ...(disponible !== undefined && { disponible }),
+      ...(categoria && { id_categoria: categoria }), // Usar id_categoria
+      ...(disponible !== undefined && { disponible }), // Usar disponible
       ...(activo !== undefined && {
         deleted_at: activo ? null : { not: null },
-      }),
+      }), // Usar deleted_at para soft delete
     };
 
+    // Mapear ordenarPor al campo correcto de la DB
     const campoOrdenamiento: Record<string, string> = {
       nombre: 'nombre',
       precio: 'precio_venta',
       codigo: 'sku',
-      stock: 'nombre',
+      stock: 'nombre', // No hay stock_actual directo en productos, usar nombre
       createdAt: 'created_at',
     };
 
     const orderBy: Prisma.productosOrderByWithRelationInput = {
-      [campoOrdenamiento[ordenarPor] || 'nombre']: orden as any,
+      [campoOrdenamiento[ordenarPor] || 'nombre']: orden,
     };
 
     const [productos, total] = await Promise.all([
       this.prisma.productos.findMany({
         where,
         skip,
-        take: limit, // ← Ahora es número garantizado
+        take: limit,
         orderBy,
         include: {
           categorias: true,
           unidades_medida: true,
-          inventario: true,
+          inventario: true, // Incluir inventario para obtener stock
         },
       }),
       this.prisma.productos.count({ where }),
     ]);
 
-    const result = {
+    return {
       data: productos,
       meta: {
         total,
@@ -236,9 +171,6 @@ export class ProductosService {
         hasPrevPage: page > 1,
       },
     };
-
-    await this.cache.set(key, result, this.DEFAULT_TTL);
-    return result;
   }
 
   async findActivos(query: QueryProductosDto) {
@@ -250,13 +182,11 @@ export class ProductosService {
   }
 
   async search(searchTerm: string) {
-    if (!searchTerm || searchTerm.length < 2) return [];
+    if (!searchTerm || searchTerm.length < 2) {
+      return [];
+    }
 
-    const key = this.keySearch(searchTerm);
-    const cached = await this.cache.get<any[]>(key);
-    if (cached) return cached;
-
-    const data = await this.prisma.productos.findMany({
+    return this.prisma.productos.findMany({
       where: {
         AND: [
           { disponible: true },
@@ -276,21 +206,16 @@ export class ProductosService {
         unidades_medida: true,
       },
     });
-
-    await this.cache.set(key, data, this.SEARCH_TTL);
-    return data;
   }
 
   async findByCategoria(categoriaId: number, query: QueryProductosDto) {
-    return this.findAll({ ...query, categoria: categoriaId });
+    return this.findAll({
+      ...query,
+      categoria: categoriaId,
+    });
   }
 
-  // ---------- READ ONE ----------
   async findOne(id: number) {
-    const key = this.keyById(id);
-    const cached = await this.cache.get<any>(key);
-    if (cached) return cached;
-
     const producto = await this.prisma.productos.findUnique({
       where: { id_producto: id },
       include: {
@@ -304,14 +229,14 @@ export class ProductosService {
       throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     }
 
-    await this.cache.set(key, producto, this.DEFAULT_TTL);
     return producto;
   }
 
-  // ---------- UPDATE ----------
   async update(id: number, updateProductoDto: UpdateProductoDto) {
+    // Verificar que el producto existe
     await this.findOne(id);
 
+    // Si se está actualizando el código (sku), verificar que sea único
     if (updateProductoDto.codigo) {
       const existingProduct = await this.prisma.productos.findFirst({
         where: {
@@ -319,6 +244,7 @@ export class ProductosService {
           NOT: { id_producto: id },
         },
       });
+
       if (existingProduct) {
         throw new ConflictException(
           `El código ${updateProductoDto.codigo} ya está en uso`,
@@ -326,22 +252,32 @@ export class ProductosService {
       }
     }
 
+    // Verificar categoría si se está actualizando
     if (updateProductoDto.id_tipo_producto) {
       const categoria = await this.prisma.categorias.findUnique({
         where: { id_categoria: updateProductoDto.id_tipo_producto },
       });
-      if (!categoria) throw new BadRequestException('La categoría no existe');
+
+      if (!categoria) {
+        throw new BadRequestException('La categoría no existe');
+      }
     }
 
+    // Verificar unidad de medida si se está actualizando
     if (updateProductoDto.id_unidad_medida) {
       const unidadMedida = await this.prisma.unidades_medida.findUnique({
         where: { id_unidad: updateProductoDto.id_unidad_medida },
       });
-      if (!unidadMedida)
+
+      if (!unidadMedida) {
         throw new BadRequestException('La unidad de medida no existe');
+      }
     }
 
+    // Preparar datos para actualización
     const updateData: any = {};
+
+    // Mapear campos del DTO a campos de la DB
     if (updateProductoDto.codigo !== undefined)
       updateData.sku = updateProductoDto.codigo;
     if (updateProductoDto.nombre !== undefined)
@@ -384,15 +320,55 @@ export class ProductosService {
       },
     });
 
-    await this.cache.set(this.keyById(id), producto, this.DEFAULT_TTL);
-    await this.invalidateListsAndDerived();
+    // Actualizar inventario si es necesario
+    if (
+      updateProductoDto.stock_minimo !== undefined ||
+      updateProductoDto.stock_maximo !== undefined
+    ) {
+      const inventarioExiste = await this.prisma.inventario.findUnique({
+        where: { id_producto: id },
+      });
+
+      if (inventarioExiste) {
+        await this.prisma.inventario.update({
+          where: { id_producto: id },
+          data: {
+            ...(updateProductoDto.stock_minimo !== undefined && {
+              stock_minimo: new Prisma.Decimal(updateProductoDto.stock_minimo),
+            }),
+            ...(updateProductoDto.stock_maximo !== undefined && {
+              stock_maximo: new Prisma.Decimal(updateProductoDto.stock_maximo),
+            }),
+            ...(updateProductoDto.ubicacion_almacen && {
+              ubicacion_almacen: updateProductoDto.ubicacion_almacen,
+            }),
+          },
+        });
+      } else {
+        await this.prisma.inventario.create({
+          data: {
+            id_producto: id,
+            stock_actual: new Prisma.Decimal(0),
+            stock_minimo: updateProductoDto.stock_minimo
+              ? new Prisma.Decimal(updateProductoDto.stock_minimo)
+              : new Prisma.Decimal(0),
+            stock_maximo: updateProductoDto.stock_maximo
+              ? new Prisma.Decimal(updateProductoDto.stock_maximo)
+              : null,
+            ubicacion_almacen: updateProductoDto.ubicacion_almacen,
+          },
+        });
+      }
+    }
+
     return producto;
   }
 
-  // ---------- DELETE / SOFT ----------
   async remove(id: number) {
+    // Verificar que el producto existe
     await this.findOne(id);
 
+    // Verificar si el producto tiene movimientos de inventario o está en órdenes
     const [movimientos, ordenes] = await Promise.all([
       this.prisma.movimientos_inventario.count({
         where: { id_producto: id },
@@ -403,7 +379,8 @@ export class ProductosService {
     ]);
 
     if (movimientos > 0 || ordenes > 0) {
-      const prod = await this.prisma.productos.update({
+      // Si tiene historial, solo hacer soft delete
+      return this.prisma.productos.update({
         where: { id_producto: id },
         data: {
           deleted_at: new Date(),
@@ -411,60 +388,60 @@ export class ProductosService {
           es_vendible: false,
         },
       });
-      await this.cacheUtil.invalidate({
-        keys: [this.keyById(id)],
-        patterns: ['productos:list:*', 'productos:search:*'],
-      });
-      return prod;
     }
 
-    const eliminado = await this.prisma.productos.delete({
+    // Si no tiene historial, se puede eliminar físicamente
+    return this.prisma.productos.delete({
       where: { id_producto: id },
     });
-
-    await this.cacheUtil.invalidate({
-      keys: [this.keyById(id)],
-      patterns: ['productos:list:*', 'productos:search:*'],
-    });
-
-    return eliminado;
   }
 
   async activar(id: number) {
     await this.findOne(id);
-    const producto = await this.prisma.productos.update({
+
+    return this.prisma.productos.update({
       where: { id_producto: id },
-      data: { deleted_at: null, disponible: true, es_vendible: true },
-      include: { categorias: true, unidades_medida: true, inventario: true },
+      data: {
+        deleted_at: null,
+        disponible: true,
+        es_vendible: true,
+      },
+      include: {
+        categorias: true,
+        unidades_medida: true,
+        inventario: true,
+      },
     });
-    await this.cache.set(this.keyById(id), producto, this.DEFAULT_TTL);
-    await this.invalidateListsAndDerived();
-    return producto;
   }
 
   async desactivar(id: number) {
     await this.findOne(id);
-    const producto = await this.prisma.productos.update({
+
+    return this.prisma.productos.update({
       where: { id_producto: id },
-      data: { disponible: false, es_vendible: false },
-      include: { categorias: true, unidades_medida: true, inventario: true },
+      data: {
+        disponible: false,
+        es_vendible: false,
+      },
+      include: {
+        categorias: true,
+        unidades_medida: true,
+        inventario: true,
+      },
     });
-    await this.cache.set(this.keyById(id), producto, this.DEFAULT_TTL);
-    await this.invalidateListsAndDerived();
-    return producto;
   }
 
   async getEstadisticas() {
-    const key = this.keyStats();
-    const cached = await this.cache.get<any>(key);
-    if (cached) return cached;
-
     const [totalProductos, productosActivos, productosBajoStock, categorias] =
       await Promise.all([
         this.prisma.productos.count(),
         this.prisma.productos.count({
-          where: { deleted_at: null, disponible: true },
+          where: {
+            deleted_at: null,
+            disponible: true,
+          },
         }),
+        // Contar productos con stock bajo
         this.prisma.inventario.count({
           where: {
             stock_actual: {
@@ -477,12 +454,14 @@ export class ProductosService {
           select: {
             id_categoria: true,
             nombre: true,
-            _count: { select: { productos: true } },
+            _count: {
+              select: { productos: true },
+            },
           },
         }),
       ]);
 
-    const result = {
+    return {
       totalProductos,
       productosActivos,
       productosInactivos: totalProductos - productosActivos,
@@ -493,8 +472,5 @@ export class ProductosService {
         cantidad: cat._count.productos,
       })),
     };
-
-    await this.cache.set(key, result, this.STATS_TTL);
-    return result;
   }
 }

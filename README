@@ -88,7 +88,8 @@ pnpm dev
 -TTL cache-stats:ping:... #segundos restantes (>0)
 
 -----------------------------Comandos para tests-----------------------------------------------
--pnpm test:unit
--pnpm test:integration
--pnpm test:e2e
--pnpm test:ci
+.\scripts\test-runner.ps1 unit
+.\scripts\test-runner.ps1 integration
+.\scripts\test-runner.ps1 e2e
+.\scripts\test-runner.ps1 ci
+.\scripts\test-runner.ps1 coverage

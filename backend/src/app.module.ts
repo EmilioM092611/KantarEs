@@ -12,6 +12,8 @@ import { CacheToolsModule } from './cache/cache-tools.module';
 import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'crypto';
 
+import { EventsModule } from './events/events.module';
+
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
@@ -72,6 +74,8 @@ import { HealthModule } from './health/health.module';
 
     RedisCacheModule,
     CacheToolsModule,
+
+    EventsModule,
 
     PrismaModule,
     AuthModule,

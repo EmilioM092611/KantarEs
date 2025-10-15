@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/health/prisma.health.ts
 import { Injectable } from '@nestjs/common';
 import { HealthIndicator, HealthCheckError } from '@nestjs/terminus';

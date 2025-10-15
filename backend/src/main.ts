@@ -11,6 +11,7 @@ import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter'
 import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
 import { RequestLoggerInterceptor } from './common/logging/request-logger.interceptor';
 import { PinoLogger } from 'nestjs-pino';
+
 // ==============================
 
 // Tracing opcional por OpenTelemetry (no falla si no está instalado).

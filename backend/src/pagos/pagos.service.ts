@@ -11,10 +11,15 @@ import { UpdatePagoDto } from './dto/update-pago.dto';
 import { CancelPagoDto } from './dto/cancel-pago.dto';
 import { FilterPagoDto } from './dto/filter-pago.dto';
 import { Prisma, estado_pago } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EstadoOrdenNombre } from '../ordenes/enums/orden-estados.enum';
 
 @Injectable()
 export class PagosService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventEmitter: EventEmitter2,
+  ) {}
 
   /**
    * Genera un folio único para el pago
@@ -60,6 +65,8 @@ export class PagosService {
       select: {
         id_orden: true,
         total: true,
+        id_sesion_mesa: true,
+        estados_orden: true,
         pagos: {
           where: {
             estado: {
@@ -139,9 +146,8 @@ export class PagosService {
 
   async create(createPagoDto: CreatePagoDto) {
     // 1. Validar orden y obtener saldo pendiente
-    const { totalOrden, totalPagado, saldoPendiente } = await this.validarOrden(
-      createPagoDto.id_orden,
-    );
+    const { orden, totalOrden, totalPagado, saldoPendiente } =
+      await this.validarOrden(createPagoDto.id_orden);
 
     // 2. Validar que el monto no exceda el saldo pendiente
     const montoPago = Number(createPagoDto.monto);
@@ -165,12 +171,13 @@ export class PagosService {
       );
     }
 
-    // 5. Generar folio
-    const folio = await this.generarFolio();
+    // 5. Usar transacción para crear pago y verificar si orden se salda
+    return await this.prisma.$transaction(async (tx) => {
+      // Generar folio
+      const folio = await this.generarFolio();
 
-    // 6. Crear el pago
-    try {
-      const pago = await this.prisma.pagos.create({
+      // Crear el pago
+      const pago = await tx.pagos.create({
         data: {
           folio_pago: folio,
           id_orden: createPagoDto.id_orden,
@@ -215,13 +222,42 @@ export class PagosService {
         },
       });
 
-      return pago;
-    } catch (error) {
-      if (error.code === 'P2002') {
-        throw new ConflictException('Ya existe un pago con ese folio');
+      // Calcular nuevo total pagado
+      const nuevoTotalPagado = totalPagado + montoPago;
+
+      // Si la orden está completamente pagada, actualizar su estado
+      if (nuevoTotalPagado >= totalOrden) {
+        // Buscar el estado "pagada"
+        const estadoPagada = await tx.estados_orden.findFirst({
+          where: {
+            nombre: {
+              equals: EstadoOrdenNombre.PAGADA,
+              mode: 'insensitive',
+            },
+          },
+        });
+
+        if (estadoPagada) {
+          await tx.ordenes.update({
+            where: { id_orden: createPagoDto.id_orden },
+            data: {
+              id_estado_orden: estadoPagada.id_estado_orden,
+              updated_at: new Date(),
+            },
+          });
+
+          // Emitir evento de orden pagada
+          this.eventEmitter.emit('orden.pagada', {
+            id_orden: orden.id_orden,
+            id_sesion_mesa: orden.id_sesion_mesa,
+            total: totalOrden,
+            timestamp: new Date(),
+          });
+        }
       }
-      throw error;
-    }
+
+      return pago;
+    });
   }
 
   async findAll(filters?: FilterPagoDto) {

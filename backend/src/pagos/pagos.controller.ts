@@ -9,6 +9,7 @@ import {
   Query,
   ParseIntPipe,
   UseGuards,
+  UseInterceptors,
   Request,
 } from '@nestjs/common';
 import { PagosService } from './pagos.service';
@@ -23,21 +24,31 @@ import {
   ApiParam,
   ApiQuery,
   ApiBearerAuth,
+  ApiHeader,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Idempotent } from '../common/decorators/idempotent.decorator';
+import { IdempotencyInterceptor } from '../common/interceptors/idempotency.interceptor';
 
 @ApiTags('Pagos')
 @ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(IdempotencyInterceptor)
 @Controller('pagos')
 export class PagosController {
   constructor(private readonly pagosService: PagosService) {}
 
   @Post()
-  @Roles('Administrador', 'Gerente', 'Cajero') //Roles de la BD
+  @Idempotent()
+  @Roles('Administrador', 'Gerente', 'Cajero')
   @ApiOperation({ summary: 'Registrar un nuevo pago' })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    description: 'Clave única para evitar pagos duplicados',
+    required: false,
+  })
   @ApiResponse({
     status: 201,
     description: 'Pago registrado exitosamente',

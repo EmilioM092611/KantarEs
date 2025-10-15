@@ -18,7 +18,6 @@ import { CambiarEstadoOrdenDto } from './dto/cambiar-estado-orden.dto';
 import { CambiarEstadoItemDto } from './dto/cambiar-estado-item.dto';
 import { AplicarDescuentoDto } from './dto/aplicar-descuento.dto';
 import { AplicarPropinaDto } from './dto/aplicar-propina.dto';
-import { DividirCuentaDto } from './dto/dividir-cuenta.dto';
 import { QueryOrdenesDto } from './dto/query-ordenes.dto';
 import { AddMultipleItemsDto } from './dto/add-multiple-items.dto';
 import {
@@ -27,12 +26,19 @@ import {
   decimalToNumber,
 } from './types/orden.types';
 import { estado_orden_detalle, Prisma } from '@prisma/client';
+import { FolioService } from './services/folio.service';
+import { EstadoOrdenNombre } from './enums/orden-estados.enum';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class OrdenesService {
   private readonly logger = new Logger(OrdenesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly folioService: FolioService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   // ========== CREAR ORDEN ==========
   async create(createOrdenDto: CreateOrdenDto, userId: number) {
@@ -52,7 +58,7 @@ export class OrdenesService {
     }
 
     // Generar folio único
-    const folio = await this.generarFolio();
+    const folio = await this.folioService.generarFolioOrden();
 
     // Obtener el estado inicial (pendiente)
     const estadoInicial = await this.prisma.estados_orden.findFirst({
@@ -282,6 +288,32 @@ export class OrdenesService {
         },
       },
       orderBy: { fecha_hora_orden: 'desc' },
+    });
+  }
+
+  async findByEstado(estado: EstadoOrdenNombre) {
+    // Buscar el estado en la BD por nombre (case-insensitive)
+    const estadoRecord = await this.prisma.estados_orden.findFirst({
+      where: {
+        nombre: {
+          equals: estado,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (!estadoRecord) {
+      throw new NotFoundException(`Estado ${estado} no encontrado`);
+    }
+
+    return this.prisma.ordenes.findMany({
+      where: { id_estado_orden: estadoRecord.id_estado_orden },
+      include: {
+        estados_orden: true,
+        orden_detalle: {
+          include: { productos: true },
+        },
+      },
     });
   }
 
@@ -548,6 +580,15 @@ export class OrdenesService {
         await this.afectarInventario(tx, id, 'salida');
       }
 
+      // Emitir evento cuando la orden se confirma
+      if (nuevoEstado.nombre === 'confirmada') {
+        this.eventEmitter.emit('orden.confirmada', {
+          id_orden: id,
+          id_sesion_mesa: orden.id_sesion_mesa,
+          timestamp: new Date(),
+        });
+      }
+
       // Si se cancela la orden, revertir inventario
       if (
         nuevoEstado.nombre === 'cancelada' &&
@@ -758,31 +799,6 @@ export class OrdenesService {
   }
 
   // ========== MÉTODOS AUXILIARES PRIVADOS ==========
-
-  private async generarFolio(): Promise<string> {
-    const fecha = new Date();
-    const year = fecha.getFullYear();
-    const month = String(fecha.getMonth() + 1).padStart(2, '0');
-    const day = String(fecha.getDate()).padStart(2, '0');
-
-    // Buscar el último folio del día
-    const ultimoFolio = await this.prisma.ordenes.findFirst({
-      where: {
-        folio: {
-          startsWith: `ORD${year}${month}${day}`,
-        },
-      },
-      orderBy: { folio: 'desc' },
-    });
-
-    let consecutivo = 1;
-    if (ultimoFolio) {
-      const numeroStr = ultimoFolio.folio.slice(-4);
-      consecutivo = parseInt(numeroStr) + 1;
-    }
-
-    return `ORD${year}${month}${day}${String(consecutivo).padStart(4, '0')}`;
-  }
 
   private async agregarItemInterno(
     tx: Prisma.TransactionClient,
@@ -1018,6 +1034,24 @@ export class OrdenesService {
       },
     });
 
+    // Buscar el tipo de movimiento por nombre, no por ID
+    const nombreTipoMovimiento =
+      tipo === 'salida' ? 'Salida por venta' : 'Devolución de cliente';
+    const tipoMovimiento = await tx.tipos_movimiento.findFirst({
+      where: {
+        nombre: {
+          equals: nombreTipoMovimiento,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (!tipoMovimiento) {
+      this.logger.warn(
+        `Tipo de movimiento '${nombreTipoMovimiento}' no encontrado`,
+      );
+    }
+
     for (const item of items) {
       if (item.productos.es_inventariable && item.productos.inventario) {
         const cantidadMovimiento = decimalToNumber(item.cantidad);
@@ -1044,8 +1078,24 @@ export class OrdenesService {
           },
         });
 
-        // Registrar movimiento de inventario (si tienes la tabla)
-        // await tx.movimientos_inventario.create({...});
+        // Registrar movimiento de inventario si existe la tabla y el tipo
+        if (tipoMovimiento) {
+          await tx.movimientos_inventario.create({
+            data: {
+              id_tipo_movimiento: tipoMovimiento.id_tipo_movimiento,
+              id_producto: item.id_producto,
+              id_usuario: 1, // TODO: Pasar el userId real
+              cantidad: new Prisma.Decimal(cantidadMovimiento),
+              id_unidad_medida: item.productos.id_unidad_medida,
+              fecha_movimiento: new Date(),
+              id_orden: ordenId,
+              observaciones:
+                tipo === 'salida'
+                  ? 'Salida automática por venta'
+                  : 'Devolución por cancelación',
+            },
+          });
+        }
       }
     }
   }

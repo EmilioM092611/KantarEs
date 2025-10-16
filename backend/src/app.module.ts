@@ -1,3 +1,4 @@
+// backend/src/app.module.ts - VERSIÓN CORREGIDA
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
@@ -45,6 +46,13 @@ import { CuentasCobrarModule } from './cuentas-cobrar/cuentas-cobrar.module';
 import { CfdiModule } from './cfdi/cfdi.module';
 import { MotorPromocionesModule } from './motor-promociones/motor-promociones.module';
 import { HealthModule } from './health/health.module';
+import { GenerosModule } from './generos/generos.module';
+import { TiposProductoModule } from './tipos-producto/tipos-producto.module';
+import { EstadosMesaModule } from './estados-mesa/estados-mesa.module';
+import { EstadosOrdenModule } from './estados-orden/estados-orden.module';
+import { RecetasModule } from './recetas/recetas.module';
+import { CombosModule } from './combos/combos.module';
+// import { LoginAttemptsModule } from './auth/login-attempts/login-attempts.module'; // COMENTADO hasta corregir schema
 
 @Module({
   imports: [
@@ -55,10 +63,20 @@ import { HealthModule } from './health/health.module';
     // Rate limiting global
     ThrottlerModule.forRoot([
       {
-        ttl: Number(process.env.RATE_TTL ?? 60), // ventana en segundos
-        limit: Number(process.env.RATE_LIMIT ?? 100), // peticiones por ventana
+        ttl: Number(process.env.RATE_TTL ?? 60),
+        limit: Number(process.env.RATE_LIMIT ?? 100),
       },
     ]),
+    // COMENTAR BullModule si no vas a usar refresh de MV con jobs
+    // BullModule.forRoot({
+    //   redis: {
+    //     host: process.env.REDIS_HOST || 'localhost',
+    //     port: parseInt(process.env.REDIS_PORT || '6379'),
+    //   },
+    // }),
+    // BullModule.registerQueue({
+    //   name: 'reportes',
+    // }),
     LoggerModule.forRoot({
       pinoHttp: {
         level: process.env.LOG_LEVEL ?? 'info',
@@ -79,8 +97,12 @@ import { HealthModule } from './health/health.module';
 
     PrismaModule,
     AuthModule,
+    GenerosModule,
     UsuariosModule,
     ProductosModule,
+    TiposProductoModule,
+    RecetasModule,
+    CombosModule,
     CategoriasModule,
     UnidadesModule,
     MesasModule,
@@ -96,6 +118,8 @@ import { HealthModule } from './health/health.module';
     MovimientosInventarioModule,
     ProveedoresModule,
     PromocionesModule,
+    EstadosMesaModule,
+    EstadosOrdenModule,
     HistorialPreciosModule,
     AuditoriaModule,
     KdsModule,
@@ -108,12 +132,10 @@ import { HealthModule } from './health/health.module';
     CfdiModule,
     MotorPromocionesModule,
     HealthModule,
+
+    // LoginAttemptsModule, // COMENTADO
   ],
   controllers: [AppController],
-  providers: [
-    AppService,
-    // Throttler guard global
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
-  ],
+  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

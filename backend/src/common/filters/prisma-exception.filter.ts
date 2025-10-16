@@ -1,53 +1,89 @@
-// src/common/filters/prisma-exception.filter.ts
+/* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
+// backend/src/common/filters/prisma-exception.filter.ts
 import {
-  ArgumentsHost,
-  Catch,
-  ConflictException,
   ExceptionFilter,
-  HttpException,
-  InternalServerErrorException,
-  NotFoundException,
+  Catch,
+  ArgumentsHost,
+  HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { Response } from 'express';
 
-@Catch()
+@Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaExceptionFilter implements ExceptionFilter {
-  catch(exception: any, host: ArgumentsHost) {
+  private readonly logger = new Logger(PrismaExceptionFilter.name);
+
+  catch(exception: Prisma.PrismaClientKnownRequestError, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
-    const res = ctx.getResponse();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest();
 
-    // Errores conocidos de Prisma
-    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
-      const code = exception.code;
-      if (code === 'P2002') {
-        // Unique constraint failed
-        const fields = (exception.meta as any)?.target ?? [];
-        throw new ConflictException(
-          `Registro duplicado${fields.length ? ` en: ${fields}` : ''}`,
-        );
-      }
-      if (code === 'P2003') {
-        // Foreign key constraint
-        throw new ConflictException('Violación de integridad referencial');
-      }
-      if (code === 'P2025') {
+    let status = HttpStatus.INTERNAL_SERVER_ERROR;
+    let message = 'Error en la base de datos';
+    let errors: any = null;
+
+    switch (exception.code) {
+      case 'P2002':
+        // Unique constraint violation
+        status = HttpStatus.CONFLICT;
+        message = 'Ya existe un registro con esos datos';
+        errors = {
+          fields: exception.meta?.target,
+          code: exception.code,
+        };
+        break;
+
+      case 'P2025':
         // Record not found
-        throw new NotFoundException('Registro no encontrado');
-      }
-      throw new InternalServerErrorException(
-        `Error de base de datos (${code})`,
-      );
+        status = HttpStatus.NOT_FOUND;
+        message = 'Registro no encontrado';
+        errors = { code: exception.code };
+        break;
+
+      case 'P2003':
+        // Foreign key constraint violation
+        status = HttpStatus.BAD_REQUEST;
+        message = 'Referencia inválida a otro registro';
+        errors = {
+          field: exception.meta?.field_name,
+          code: exception.code,
+        };
+        break;
+
+      case 'P2014':
+        // Required relation violation
+        status = HttpStatus.BAD_REQUEST;
+        message = 'Relación requerida no establecida';
+        errors = { code: exception.code };
+        break;
+
+      default:
+        status = HttpStatus.INTERNAL_SERVER_ERROR;
+        message = 'Error en la operación de base de datos';
+        errors = {
+          code: exception.code,
+          meta: exception.meta,
+        };
     }
 
-    // Si ya es HttpException, delega
-    if (exception instanceof HttpException) {
-      const status = exception.getStatus();
-      const body = exception.getResponse();
-      return res.status(status).json(body);
-    }
+    // Formato unificado con http-exception.filter (Mejora 13)
+    const errorResponse = {
+      success: false,
+      code: status,
+      message: [message],
+      errors,
+      timestamp: new Date().toISOString(),
+      path: request.url,
+      method: request.method,
+      requestId: (request as any).id || 'unknown',
+    };
 
-    // Desconocido
-    const e = new InternalServerErrorException('Error interno');
-    return res.status(e.getStatus()).json(e.getResponse());
+    this.logger.error(
+      `Prisma Error ${exception.code}: ${request.method} ${request.url}`,
+      JSON.stringify(errors),
+    );
+
+    response.status(status).json(errorResponse);
   }
 }

@@ -1,318 +1,274 @@
-/*
+// backend/src/productos/recetas/recetas.service.ts
 import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateRecetaDto, RecetaLineaDto } from './dto/create-receta.dto';
+import { CreateRecetaDto } from './dto/create-receta.dto';
 import { UpdateRecetaDto } from './dto/update-receta.dto';
-import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class RecetasService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createReceta(idProducto: number, dto: CreateRecetaDto) {
+  async getReceta(idProductoFinal: number) {
     // Verificar que el producto existe
     const producto = await this.prisma.productos.findUnique({
-      where: { id_producto: idProducto },
+      where: { id_producto: idProductoFinal },
+      select: {
+        id_producto: true,
+        nombre: true,
+        sku: true,
+        costo_promedio: true,
+      },
     });
 
     if (!producto) {
       throw new NotFoundException('Producto no encontrado');
     }
 
-    // Verificar que no tenga receta existente
-    const recetaExistente = await this.prisma.recetas.findFirst({
-      where: { id_producto: idProducto },
-    });
-
-    if (recetaExistente) {
-      throw new ConflictException('El producto ya tiene una receta asociada');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      // Crear receta principal
-      const receta = await tx.recetas.create({
-        data: {
-          id_producto: idProducto,
-          nombre: dto.nombre || `Receta de ${producto.nombre}`,
-          descripcion: dto.descripcion,
-          rendimiento: dto.rendimiento || 1,
-          tiempo_preparacion: dto.tiempo_preparacion,
-          costo_total: 0, // Se calculará después
-        },
-      });
-
-      // Crear líneas de receta y calcular costo
-      let costoTotal = new Prisma.Decimal(0);
-
-      for (const linea of dto.lineas) {
-        // Verificar que el insumo existe
-        const insumo = await tx.productos.findUnique({
-          where: { id_producto: linea.id_insumo },
-          include: { inventario: true },
-        });
-
-        if (!insumo) {
-          throw new NotFoundException(
-            `Insumo con ID ${linea.id_insumo} no encontrado`,
-          );
-        }
-
-        const costoUnitario = insumo.costo_unitario || new Prisma.Decimal(0);
-        const costoLinea = costoUnitario.mul(linea.cantidad);
-        costoTotal = costoTotal.add(costoLinea);
-
-        await tx.receta_lineas.create({
-          data: {
-            id_receta: receta.id_receta,
-            id_insumo: linea.id_insumo,
-            cantidad: linea.cantidad,
-            id_unidad_medida: linea.id_unidad_medida || insumo.id_unidad_medida,
-            costo_linea: costoLinea,
-            notas: linea.notas,
-          },
-        });
-      }
-
-      // Actualizar costo total
-      const recetaFinal = await tx.recetas.update({
-        where: { id_receta: receta.id_receta },
-        data: { costo_total: costoTotal },
-        include: {
-          receta_lineas: {
-            include: {
-              productos: true,
-              unidades_medida: true,
-            },
-          },
-        },
-      });
-
-      return recetaFinal;
-    });
-  }
-
-  async getRecetaByProducto(idProducto: number) {
-    const receta = await this.prisma.recetas.findFirst({
-      where: { id_producto: idProducto },
+    // Obtener líneas de receta
+    const lineas = await this.prisma.receta_insumos.findMany({
+      where: { id_producto_final: idProductoFinal },
       include: {
-        productos: true,
-        receta_lineas: {
-          include: {
-            productos: true,
-            unidades_medida: true,
+        productos_receta_insumos_id_insumoToproductos: {
+          select: {
+            id_producto: true,
+            nombre: true,
+            sku: true,
+            costo_promedio: true,
+          },
+        },
+        unidades_medida: {
+          select: {
+            id_unidad: true,
+            nombre: true,
+            abreviatura: true,
           },
         },
       },
+      orderBy: { id: 'asc' },
     });
-
-    if (!receta) {
-      throw new NotFoundException('Receta no encontrada para este producto');
-    }
-
-    return receta;
-  }
-
-  async updateReceta(idProducto: number, dto: UpdateRecetaDto) {
-    const receta = await this.prisma.recetas.findFirst({
-      where: { id_producto: idProducto },
-    });
-
-    if (!receta) {
-      throw new NotFoundException('Receta no encontrada');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      // Actualizar datos principales
-      await tx.recetas.update({
-        where: { id_receta: receta.id_receta },
-        data: {
-          nombre: dto.nombre,
-          descripcion: dto.descripcion,
-          rendimiento: dto.rendimiento,
-          tiempo_preparacion: dto.tiempo_preparacion,
-        },
-      });
-
-      // Si hay líneas nuevas, actualizar
-      if (dto.lineas && dto.lineas.length > 0) {
-        // Eliminar líneas existentes
-        await tx.receta_lineas.deleteMany({
-          where: { id_receta: receta.id_receta },
-        });
-
-        // Crear nuevas líneas
-        let costoTotal = new Prisma.Decimal(0);
-
-        for (const linea of dto.lineas) {
-          const insumo = await tx.productos.findUnique({
-            where: { id_producto: linea.id_insumo },
-          });
-
-          if (!insumo) {
-            throw new NotFoundException(
-              `Insumo con ID ${linea.id_insumo} no encontrado`,
-            );
-          }
-
-          const costoUnitario = insumo.costo_unitario || new Prisma.Decimal(0);
-          const costoLinea = costoUnitario.mul(linea.cantidad);
-          costoTotal = costoTotal.add(costoLinea);
-
-          await tx.receta_lineas.create({
-            data: {
-              id_receta: receta.id_receta,
-              id_insumo: linea.id_insumo,
-              cantidad: linea.cantidad,
-              id_unidad_medida:
-                linea.id_unidad_medida || insumo.id_unidad_medida,
-              costo_linea: costoLinea,
-              notas: linea.notas,
-            },
-          });
-        }
-
-        // Actualizar costo total
-        await tx.recetas.update({
-          where: { id_receta: receta.id_receta },
-          data: { costo_total: costoTotal },
-        });
-      }
-
-      return this.getRecetaByProducto(idProducto);
-    });
-  }
-
-  async deleteReceta(idProducto: number) {
-    const receta = await this.prisma.recetas.findFirst({
-      where: { id_producto: idProducto },
-    });
-
-    if (!receta) {
-      throw new NotFoundException('Receta no encontrada');
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      // Eliminar líneas
-      await tx.receta_lineas.deleteMany({
-        where: { id_receta: receta.id_receta },
-      });
-
-      // Eliminar receta
-      await tx.recetas.delete({
-        where: { id_receta: receta.id_receta },
-      });
-    });
-
-    return { message: 'Receta eliminada exitosamente' };
-  }
-
-  async calcularCostoReceta(idProducto: number) {
-    const receta = await this.getRecetaByProducto(idProducto);
-
-    let costoTotal = new Prisma.Decimal(0);
-    const detallesCosto = [];
-
-    for (const linea of receta.receta_lineas) {
-      const costoLinea = linea.costo_linea || new Prisma.Decimal(0);
-      costoTotal = costoTotal.add(costoLinea);
-
-      detallesCosto.push({
-        insumo: linea.productos.nombre,
-        cantidad: linea.cantidad,
-        unidad: linea.unidades_medida.abreviatura,
-        costo: costoLinea.toNumber(),
-      });
-    }
-
-    const producto = await this.prisma.productos.findUnique({
-      where: { id_producto: idProducto },
-    });
-
-    const precioVenta = producto?.precio_venta || new Prisma.Decimal(0);
-    const margen = precioVenta.sub(costoTotal);
-    const margenPorcentaje = precioVenta.gt(0)
-      ? margen.div(precioVenta).mul(100)
-      : new Prisma.Decimal(0);
 
     return {
-      id_producto: idProducto,
-      producto: producto?.nombre,
-      costo_total: costoTotal.toNumber(),
-      precio_venta: precioVenta.toNumber(),
-      margen: margen.toNumber(),
-      margen_porcentaje: margenPorcentaje.toNumber(),
-      rendimiento: receta.rendimiento,
-      costo_por_porcion: costoTotal.div(receta.rendimiento || 1).toNumber(),
-      detalle: detallesCosto,
+      producto_final: producto,
+      lineas_receta: lineas.map((linea) => ({
+        id: linea.id,
+        insumo: linea.productos_receta_insumos_id_insumoToproductos,
+        cantidad_necesaria: Number(linea.cantidad_necesaria),
+        unidad_medida: linea.unidades_medida,
+        merma_esperada_porcentaje: Number(linea.merma_esperada_porcentaje),
+        notas_preparacion: linea.notas_preparacion,
+        costo_linea:
+          Number(linea.cantidad_necesaria) *
+          Number(
+            linea.productos_receta_insumos_id_insumoToproductos.costo_promedio,
+          ),
+      })),
+      costo_total_calculado: lineas.reduce(
+        (sum, linea) =>
+          sum +
+          Number(linea.cantidad_necesaria) *
+            Number(
+              linea.productos_receta_insumos_id_insumoToproductos
+                .costo_promedio,
+            ),
+        0,
+      ),
     };
   }
 
-  async descontarInsumosPorVenta(idProducto: number, cantidad: number) {
-    const receta = await this.getRecetaByProducto(idProducto);
+  async createReceta(idProductoFinal: number, dto: CreateRecetaDto) {
+    // Verificar que el producto existe
+    const producto = await this.prisma.productos.findUnique({
+      where: { id_producto: idProductoFinal },
+    });
 
-    if (!receta) {
-      return null; // No tiene receta, no descontar insumos
+    if (!producto) {
+      throw new NotFoundException('Producto no encontrado');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const movimientos = [];
-
-      for (const linea of receta.receta_lineas) {
-        const cantidadDescontar = linea.cantidad.mul(cantidad);
-
-        // Verificar inventario del insumo
-        const inventarioInsumo = await tx.inventario.findFirst({
-          where: { id_producto: linea.id_insumo },
-        });
-
-        if (!inventarioInsumo) {
-          throw new BadRequestException(
-            `No hay inventario para el insumo ${linea.productos.nombre}`,
-          );
-        }
-
-        if (inventarioInsumo.stock_actual.lt(cantidadDescontar)) {
-          throw new BadRequestException(
-            `Stock insuficiente del insumo ${linea.productos.nombre}`,
-          );
-        }
-
-        // Actualizar inventario
-        await tx.inventario.update({
-          where: { id_inventario: inventarioInsumo.id_inventario },
-          data: {
-            stock_actual: inventarioInsumo.stock_actual.sub(cantidadDescontar),
-          },
-        });
-
-        // Registrar movimiento
-        const tipoSalida = await tx.tipos_movimiento.findFirst({
-          where: { nombre: 'Salida por producción' },
-        });
-
-        if (tipoSalida) {
-          const movimiento = await tx.movimientos_inventario.create({
-            data: {
-              id_tipo_movimiento: tipoSalida.id_tipo_movimiento,
-              id_producto: linea.id_insumo,
-              cantidad: cantidadDescontar,
-              id_unidad_medida: linea.id_unidad_medida,
-              id_usuario: 1, // TODO: Pasar usuario real
-              fecha_movimiento: new Date(),
-              observaciones: `Salida por producción de ${producto.nombre}`,
-            },
-          });
-          movimientos.push(movimiento);
-        }
+    // Validar que no haya ciclos
+    for (const linea of dto.lineas) {
+      if (linea.id_insumo === idProductoFinal) {
+        throw new BadRequestException(
+          'Un producto no puede ser insumo de sí mismo',
+        );
       }
+    }
 
-      return movimientos;
+    // Eliminar receta anterior si existe
+    await this.prisma.receta_insumos.deleteMany({
+      where: { id_producto_final: idProductoFinal },
+    });
+
+    // Crear nuevas líneas
+    const lineasCreadas = await Promise.all(
+      dto.lineas.map((linea) =>
+        this.prisma.receta_insumos.create({
+          data: {
+            id_producto_final: idProductoFinal,
+            id_insumo: linea.id_insumo,
+            cantidad_necesaria: linea.cantidad_necesaria,
+            id_unidad_medida: linea.id_unidad_medida,
+            merma_esperada_porcentaje: linea.merma_esperada_porcentaje || 0,
+            notas_preparacion: linea.notas_preparacion || null,
+          },
+          include: {
+            productos_receta_insumos_id_insumoToproductos: true,
+            unidades_medida: true,
+          },
+        }),
+      ),
+    );
+
+    return {
+      producto_final_id: idProductoFinal,
+      lineas_creadas: lineasCreadas.length,
+      lineas: lineasCreadas,
+    };
+  }
+
+  async updateLineaReceta(idLinea: number, dto: UpdateRecetaDto) {
+    const lineaExistente = await this.prisma.receta_insumos.findUnique({
+      where: { id: idLinea },
+    });
+
+    if (!lineaExistente) {
+      throw new NotFoundException('Línea de receta no encontrada');
+    }
+
+    const lineaActualizada = await this.prisma.receta_insumos.update({
+      where: { id: idLinea },
+      data: {
+        cantidad_necesaria: dto.cantidad_necesaria,
+        merma_esperada_porcentaje: dto.merma_esperada_porcentaje,
+        notas_preparacion: dto.notas_preparacion,
+      },
+      include: {
+        productos_receta_insumos_id_insumoToproductos: true,
+        unidades_medida: true,
+      },
+    });
+
+    return lineaActualizada;
+  }
+
+  async deleteLineaReceta(idLinea: number) {
+    const linea = await this.prisma.receta_insumos.findUnique({
+      where: { id: idLinea },
+    });
+
+    if (!linea) {
+      throw new NotFoundException('Línea de receta no encontrada');
+    }
+
+    await this.prisma.receta_insumos.delete({
+      where: { id: idLinea },
     });
   }
+
+  async calcularCostoProduccion(idProductoFinal: number) {
+    const receta = await this.getReceta(idProductoFinal);
+
+    const costoInsumos = receta.lineas_receta.reduce(
+      (sum, linea) => sum + linea.costo_linea,
+      0,
+    );
+
+    const costoConMerma = receta.lineas_receta.reduce((sum, linea) => {
+      const mermaDecimal = linea.merma_esperada_porcentaje / 100;
+      const costoConMermaLinea = linea.costo_linea * (1 + mermaDecimal);
+      return sum + costoConMermaLinea;
+    }, 0);
+
+    return {
+      producto_id: idProductoFinal,
+      producto_nombre: receta.producto_final.nombre,
+      costo_insumos: costoInsumos,
+      costo_con_merma: costoConMerma,
+      diferencia_merma: costoConMerma - costoInsumos,
+      margen_vs_precio_venta: receta.producto_final.costo_promedio
+        ? ((Number(receta.producto_final.costo_promedio) - costoConMerma) /
+            Number(receta.producto_final.costo_promedio)) *
+          100
+        : 0,
+      lineas_detalle: receta.lineas_receta,
+    };
+  }
+
+  async validarReceta(idProductoFinal: number) {
+    const receta = await this.getReceta(idProductoFinal);
+    const errores: string[] = [];
+    const advertencias: string[] = [];
+
+    // Validar que tenga al menos una línea
+    if (receta.lineas_receta.length === 0) {
+      advertencias.push('La receta no tiene líneas definidas');
+    }
+
+    // Validar que todos los insumos existan y estén activos
+    for (const linea of receta.lineas_receta) {
+      const insumo = await this.prisma.productos.findUnique({
+        where: { id_producto: linea.insumo.id_producto },
+      });
+
+      if (!insumo) {
+        errores.push(`Insumo ${linea.insumo.nombre} no existe`);
+      } else if (!insumo.disponible) {
+        advertencias.push(`Insumo ${linea.insumo.nombre} no está disponible`);
+      }
+
+      // Validar cantidades
+      if (linea.cantidad_necesaria <= 0) {
+        errores.push(`Cantidad inválida para insumo ${linea.insumo.nombre}`);
+      }
+
+      // Validar merma
+      if (
+        linea.merma_esperada_porcentaje < 0 ||
+        linea.merma_esperada_porcentaje > 100
+      ) {
+        errores.push(`Merma inválida para insumo ${linea.insumo.nombre}`);
+      }
+    }
+
+    // Validar ciclos (producto A requiere B, B requiere A)
+    const cicloDetectado = await this.detectarCiclos(idProductoFinal);
+    if (cicloDetectado) {
+      errores.push('Se detectó un ciclo en la receta (dependencia circular)');
+    }
+
+    return {
+      valida: errores.length === 0,
+      errores,
+      advertencias,
+      total_lineas: receta.lineas_receta.length,
+    };
+  }
+
+  private async detectarCiclos(
+    idProducto: number,
+    visitados: Set<number> = new Set(),
+  ): Promise<boolean> {
+    if (visitados.has(idProducto)) {
+      return true; // Ciclo detectado
+    }
+
+    visitados.add(idProducto);
+
+    const receta = await this.prisma.receta_insumos.findMany({
+      where: { id_producto_final: idProducto },
+      select: { id_insumo: true },
+    });
+
+    for (const linea of receta) {
+      if (await this.detectarCiclos(linea.id_insumo, new Set(visitados))) {
+        return true;
+      }
+    }
+
+    return false;
+  }
 }
-*/

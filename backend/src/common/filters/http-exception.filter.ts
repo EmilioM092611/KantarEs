@@ -1,52 +1,55 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
+// backend/src/common/filters/http-exception.filter.ts
 import {
-  ArgumentsHost,
-  Catch,
   ExceptionFilter,
+  Catch,
+  ArgumentsHost,
   HttpException,
-  HttpStatus,
+  Logger,
 } from '@nestjs/common';
-import { ErrorCode } from '../errors/error-codes';
+import { Request, Response } from 'express';
 
-@Catch()
-export class GlobalHttpExceptionFilter implements ExceptionFilter {
-  catch(exception: any, host: ArgumentsHost) {
+@Catch(HttpException)
+export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
+  catch(exception: HttpException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
-    const req = ctx.getRequest<any>();
-    const res = ctx.getResponse<any>();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
+    const status = exception.getStatus();
+    const exceptionResponse = exception.getResponse();
 
-    const requestId =
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      (req?.headers?.['x-request-id'] as string) || (req as any)?.id;
+    // Extraer mensaje y detalles
+    let message = 'Error en la solicitud';
+    let errors: any = null;
 
-    // If this is already an HttpException, use its response body and status.
-    if (exception instanceof HttpException) {
-      const status = exception.getStatus();
-      const body = exception.getResponse();
-      const payload =
-        typeof body === 'string' ? { message: body } : (body as any);
-      return res.status(status).send({
-        success: false,
-        requestId,
-        timestamp: new Date().toISOString(),
-        path: req?.url,
-        ...payload,
-      });
+    if (typeof exceptionResponse === 'object') {
+      const responseObj = exceptionResponse as any;
+      message = responseObj.message || message;
+      errors = responseObj.errors || responseObj.error || null;
+    } else {
+      message = exceptionResponse as string;
     }
 
-    // Unknown/unexpected error
-    const status = HttpStatus.INTERNAL_SERVER_ERROR;
-    const payload = {
+    // Formato de error estándar unificado (Mejora 13)
+    const errorResponse = {
       success: false,
-      code: ErrorCode.COM_INTERNAL,
-      message: 'Error interno del servidor',
-      details:
-        process.env.NODE_ENV === 'production'
-          ? undefined
-          : { error: String(exception?.message || exception) },
-      requestId,
+      code: status,
+      message: Array.isArray(message) ? message : [message],
+      errors,
       timestamp: new Date().toISOString(),
-      path: req?.url,
+      path: request.url,
+      method: request.method,
+      requestId: (request as any).id || 'unknown',
     };
-    return res.status(status).send(payload);
+
+    // Log del error
+    this.logger.error(
+      `HTTP ${status} Error: ${request.method} ${request.url}`,
+      JSON.stringify(errorResponse),
+    );
+
+    response.status(status).json(errorResponse);
   }
 }

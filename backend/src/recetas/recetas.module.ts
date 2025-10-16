@@ -1,4 +1,5 @@
-/*import { Module } from '@nestjs/common';
+// backend/src/productos/recetas/recetas.module.ts
+import { Module } from '@nestjs/common';
 import { RecetasController } from './recetas.controller';
 import { RecetasService } from './recetas.service';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -10,4 +11,3 @@ import { PrismaModule } from '../prisma/prisma.module';
   exports: [RecetasService],
 })
 export class RecetasModule {}
-*/

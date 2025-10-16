@@ -17,7 +17,12 @@ import { CreateProductoDto } from './dto/create-producto.dto';
 import { UpdateProductoDto } from './dto/update-producto.dto';
 import { QueryProductosDto } from './dto/query-productos.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
 
 @ApiTags('Productos')
 @ApiBearerAuth('JWT-auth')
@@ -29,6 +34,14 @@ export class ProductosController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Crear nuevo producto' })
+  @ApiResponse({
+    status: 201,
+    description: 'Producto creado exitosamente',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Producto con ese SKU ya existe',
+  })
   async create(@Body() createProductoDto: CreateProductoDto) {
     const producto = await this.productosService.create(createProductoDto);
     return {
@@ -39,7 +52,11 @@ export class ProductosController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar todos los productos' })
+  @ApiOperation({ summary: 'Listar todos los productos con filtros' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de productos con paginación',
+  })
   async findAll(@Query() query: QueryProductosDto) {
     const result = await this.productosService.findAll(query);
     return {
@@ -49,7 +66,11 @@ export class ProductosController {
   }
 
   @Get('activos')
-  @ApiOperation({ summary: 'Listar solo productos activos' })
+  @ApiOperation({ summary: 'Listar solo productos activos y disponibles' })
+  @ApiResponse({
+    status: 200,
+    description: 'Productos activos y disponibles',
+  })
   async findActivos(@Query() query: QueryProductosDto) {
     const result = await this.productosService.findActivos(query);
     return {
@@ -59,7 +80,11 @@ export class ProductosController {
   }
 
   @Get('buscar')
-  @ApiOperation({ summary: 'Buscar productos especificos' })
+  @ApiOperation({ summary: 'Buscar productos por nombre o SKU' })
+  @ApiResponse({
+    status: 200,
+    description: 'Resultados de búsqueda',
+  })
   async search(@Query('q') searchTerm: string) {
     const productos = await this.productosService.search(searchTerm);
     return {
@@ -69,7 +94,11 @@ export class ProductosController {
   }
 
   @Get('por-categoria/:categoriaId')
-  @ApiOperation({ summary: 'Buscar productos por categoría' })
+  @ApiOperation({ summary: 'Listar productos por categoría' })
+  @ApiResponse({
+    status: 200,
+    description: 'Productos de la categoría especificada',
+  })
   async findByCategoria(
     @Param('categoriaId', ParseIntPipe) categoriaId: number,
     @Query() query: QueryProductosDto,
@@ -85,7 +114,11 @@ export class ProductosController {
   }
 
   @Get('estadisticas')
-  @ApiOperation({ summary: 'Listar estadisticas de productos' })
+  @ApiOperation({ summary: 'Obtener estadísticas generales de productos' })
+  @ApiResponse({
+    status: 200,
+    description: 'Estadísticas: total, activos, inactivos, bajo stock, etc.',
+  })
   async getEstadisticas() {
     const stats = await this.productosService.getEstadisticas();
     return {
@@ -95,7 +128,15 @@ export class ProductosController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Obtener producto por ID' })
+  @ApiOperation({ summary: 'Obtener producto por ID con detalles completos' })
+  @ApiResponse({
+    status: 200,
+    description: 'Detalle del producto',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Producto no encontrado',
+  })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     const producto = await this.productosService.findOne(id);
     return {
@@ -105,7 +146,15 @@ export class ProductosController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Actualizar producto' })
+  @ApiOperation({ summary: 'Actualizar datos de un producto' })
+  @ApiResponse({
+    status: 200,
+    description: 'Producto actualizado exitosamente',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Producto no encontrado',
+  })
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateProductoDto: UpdateProductoDto,
@@ -119,7 +168,15 @@ export class ProductosController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Eliminar producto' })
+  @ApiOperation({ summary: 'Eliminar producto (soft delete)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Producto eliminado exitosamente',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Producto no encontrado',
+  })
   async remove(@Param('id', ParseIntPipe) id: number) {
     await this.productosService.remove(id);
     return {
@@ -129,7 +186,11 @@ export class ProductosController {
   }
 
   @Post(':id/activar')
-  @ApiOperation({ summary: 'Activar producto' })
+  @ApiOperation({ summary: 'Activar un producto desactivado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Producto activado',
+  })
   async activar(@Param('id', ParseIntPipe) id: number) {
     const producto = await this.productosService.activar(id);
     return {
@@ -140,7 +201,11 @@ export class ProductosController {
   }
 
   @Post(':id/desactivar')
-  @ApiOperation({ summary: 'Desactivar producto' })
+  @ApiOperation({ summary: 'Desactivar un producto temporalmente' })
+  @ApiResponse({
+    status: 200,
+    description: 'Producto desactivado',
+  })
   async desactivar(@Param('id', ParseIntPipe) id: number) {
     const producto = await this.productosService.desactivar(id);
     return {
@@ -149,4 +214,23 @@ export class ProductosController {
       data: producto,
     };
   }
+
+  // === MEJORA 6: Endpoints para Recetas (BOM) ===
+  // Nota: La implementación completa está en RecetasModule
+  // Aquí solo documentamos las rutas anidadas que se usarán
+
+  /**
+   * NOTA: Las rutas completas de recetas están en:
+   * GET    /productos/:id/receta          - Obtener receta completa
+   * POST   /productos/:id/receta          - Crear/actualizar receta
+   * DELETE /productos/:id/receta/:insumo  - Eliminar insumo de receta
+   *
+   * NOTA: Las rutas completas de combos están en:
+   * GET    /productos/:id/combos          - Obtener componentes del combo
+   * POST   /productos/:id/combos          - Añadir componente al combo
+   * DELETE /productos/:id/combos/:componente - Eliminar componente
+   *
+   * Estos endpoints se implementan en RecetasModule y CombosModule
+   * para mejor separación de responsabilidades.
+   */
 }

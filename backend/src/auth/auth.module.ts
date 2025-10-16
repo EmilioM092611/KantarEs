@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await */
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -7,6 +8,7 @@ import { AuthController } from './auth.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
+import { LoginAttemptsService } from './login-attempts/login-attempts.service';
 
 @Module({
   imports: [
@@ -29,8 +31,13 @@ import { LocalStrategy } from './strategies/local.strategy';
       },
     }),
   ],
-  providers: [AuthService, LocalStrategy, JwtStrategy],
+  providers: [
+    AuthService,
+    LocalStrategy,
+    JwtStrategy,
+    LoginAttemptsService, // ← AGREGADO
+  ],
   controllers: [AuthController],
-  exports: [AuthService, JwtModule],
+  exports: [AuthService, JwtModule, LoginAttemptsService], // ← EXPORTADO también
 })
 export class AuthModule {}

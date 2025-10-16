@@ -8,7 +8,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 
 // === Agregados (hardening) ===
-import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { RequestLoggerInterceptor } from './common/logging/request-logger.interceptor';
 import { PinoLogger } from 'nestjs-pino';
 
@@ -95,7 +95,7 @@ export async function bootstrap() {
 
   // === Agregados (hardening) ===
   // Filtro global de HTTP uniforme (envelope con code/requestId/timestamp/path)
-  app.useGlobalFilters(new GlobalHttpExceptionFilter());
+  app.useGlobalFilters(new HttpExceptionFilter());
 
   // Interceptor de logging de solicitudes/respuestas/errores con correlación (Pino)
   const pinoLogger = await app.resolve(PinoLogger);

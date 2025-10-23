@@ -1,36 +1,32 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-// backend/src/productos/recetas/dto/query-recetas.dto.ts
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsBoolean, IsNumber, Min } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { IsInt, IsOptional, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class QueryRecetasDto {
   @ApiPropertyOptional({
-    description:
-      'Incluir solo recetas válidas (sin ciclos, con insumos disponibles)',
+    description: 'ID del producto final para filtrar',
+    example: 25,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  id_producto_final?: number;
+
+  @ApiPropertyOptional({
+    description: 'ID del insumo para buscar en qué recetas se usa',
+    example: 15,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  id_insumo?: number;
+
+  @ApiPropertyOptional({
+    description: 'Solo recetas con costo calculado',
     example: true,
   })
   @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
-  solo_validas?: boolean;
-
-  @ApiPropertyOptional({
-    description: 'Incluir cálculo de costos',
-    example: true,
-  })
-  @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
-  incluir_costos?: boolean;
-
-  @ApiPropertyOptional({
-    description: 'Filtrar por porcentaje de merma máximo',
-    example: 10,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Transform(({ value }) => parseFloat(value))
-  merma_maxima?: number;
+  con_costo?: boolean;
 }

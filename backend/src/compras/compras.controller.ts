@@ -26,13 +26,23 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { AprobarCompraDto } from './dto/aprobar-compra.dto';
+import { CambiarEstadoCompraDto } from './dto/cambiar-estado-compra.dto';
+import { ComparadorProveedoresService } from './comparador-proveedores.service';
+import { AlertasReordenService } from './alertas-reorden.service';
+import { SugerenciasCompraService } from './sugerencias-compra.service';
 
 @ApiTags('Compras')
 @ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('compras')
 export class ComprasController {
-  constructor(private readonly comprasService: ComprasService) {}
+  constructor(
+    private readonly comprasService: ComprasService,
+    private readonly comparadorService: ComparadorProveedoresService,
+    private readonly alertasService: AlertasReordenService,
+    private readonly sugerenciasService: SugerenciasCompraService,
+  ) {}
 
   @Post()
   @Roles('Administrador', 'Gerente')
@@ -626,5 +636,106 @@ export class ComprasController {
     @Body() cancelCompraDto: CancelCompraDto,
   ) {
     return this.comprasService.cancel(id, cancelCompraDto);
+  }
+  @Patch(':id/cambiar-estado')
+  @Roles('Administrador', 'Gerente')
+  @ApiOperation({
+    summary: 'Cambiar estado de una compra',
+    description:
+      'Permite cambiar el estado de una compra validando transiciones permitidas',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la compra' })
+  cambiarEstado(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CambiarEstadoCompraDto,
+  ) {
+    return this.comprasService.cambiarEstado(
+      id,
+      dto.accion,
+      dto.id_usuario ?? 1, // ← CORRECCIÓN AQUÍ
+      dto.observaciones,
+    );
+  }
+
+  @Get(':id/historial-estados')
+  @Roles('Administrador', 'Gerente')
+  @ApiOperation({ summary: 'Obtener historial de cambios de estado' })
+  getHistorialEstados(@Param('id', ParseIntPipe) id: number) {
+    return this.comprasService.getHistorialEstados(id);
+  }
+
+  @Post(':id/solicitar-aprobacion')
+  @Roles('Administrador', 'Gerente')
+  @ApiOperation({ summary: 'Solicitar aprobaciones multinivel' })
+  solicitarAprobacion(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('niveles') niveles: number[],
+  ) {
+    return this.comprasService.solicitarAprobacion(id, niveles);
+  }
+
+  @Patch(':id/procesar-aprobacion')
+  @Roles('Administrador', 'Gerente', 'Director')
+  @ApiOperation({ summary: 'Aprobar o rechazar una compra' })
+  procesarAprobacion(@Body() dto: AprobarCompraDto) {
+    return this.comprasService.procesarAprobacion(dto);
+  }
+  @Get('comparar-proveedores/producto/:idProducto')
+  @Roles('Administrador', 'Gerente')
+  @ApiOperation({
+    summary: 'Comparar proveedores para un producto específico',
+    description: 'Muestra precios actuales, histórico y recomendación',
+  })
+  compararProveedores(@Param('idProducto', ParseIntPipe) idProducto: number) {
+    return this.comparadorService.compararProveedoresPorProducto(idProducto);
+  }
+
+  @Post('comparar-proveedores/multiples')
+  @Roles('Administrador', 'Gerente')
+  @ApiOperation({ summary: 'Comparar proveedores para múltiples productos' })
+  compararMultiples(@Body('productos') productos: number[]) {
+    return this.comparadorService.compararVariosProductos(productos);
+  }
+  @Get('alertas/productos-reorden')
+  @Roles('Administrador', 'Gerente')
+  @ApiOperation({ summary: 'Obtener productos que requieren reorden' })
+  getProductosReorden() {
+    return this.alertasService.getProductosRequierenReorden();
+  }
+
+  @Post('alertas/verificar-manual')
+  @Roles('Administrador')
+  @ApiOperation({ summary: 'Ejecutar verificación de stock manualmente' })
+  ejecutarVerificacionManual() {
+    return this.alertasService.ejecutarVerificacionManual();
+  }
+  @Get('sugerencias/consumo-historico/:idProducto')
+  @Roles('Administrador', 'Gerente')
+  @ApiOperation({ summary: 'Analizar consumo histórico de un producto' })
+  analizarConsumo(@Param('idProducto', ParseIntPipe) idProducto: number) {
+    return this.sugerenciasService.analizarConsumoHistorico(idProducto);
+  }
+
+  @Get('sugerencias/predecir-demanda/:idProducto')
+  @Roles('Administrador', 'Gerente')
+  @ApiOperation({ summary: 'Predecir demanda futura de un producto' })
+  predecirDemanda(@Param('idProducto', ParseIntPipe) idProducto: number) {
+    return this.sugerenciasService.predecirDemanda(idProducto);
+  }
+
+  @Get('sugerencias/cantidad-optima/:idProducto')
+  @Roles('Administrador', 'Gerente')
+  @ApiOperation({ summary: 'Calcular cantidad económica de pedido (EOQ)' })
+  optimizarCantidad(@Param('idProducto', ParseIntPipe) idProducto: number) {
+    return this.sugerenciasService.optimizarCantidadPedido(idProducto);
+  }
+
+  @Get('sugerencias/orden-automatica')
+  @Roles('Administrador', 'Gerente')
+  @ApiOperation({
+    summary: 'Generar orden de compra sugerida automáticamente',
+  })
+  generarOrdenSugerida() {
+    return this.sugerenciasService.generarOrdenSugerida();
   }
 }

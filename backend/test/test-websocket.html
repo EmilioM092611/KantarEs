@@ -1,0 +1,174 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Test WebSocket - KantarES</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: Arial;
+        padding: 20px;
+        background: #1e293b;
+        color: white;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      input,
+      button {
+        padding: 10px;
+        margin: 5px;
+        font-size: 14px;
+      }
+      #messages {
+        background: #0f172a;
+        padding: 20px;
+        border-radius: 8px;
+        height: 400px;
+        overflow-y: auto;
+      }
+      .message {
+        padding: 8px;
+        margin: 5px 0;
+        background: #334155;
+        border-radius: 4px;
+      }
+      .success {
+        background: #065f46;
+      }
+      .error {
+        background: #7f1d1d;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🔔 Test WebSocket - Notificaciones</h1>
+
+      <div>
+        <input
+          id="token"
+          type="text"
+          placeholder="Pegar JWT Token aquí"
+          style="width: 500px"
+        />
+        <button onclick="conectar()">Conectar</button>
+        <button onclick="desconectar()">Desconectar</button>
+      </div>
+
+      <div>
+        <h3>Enviar notificación:</h3>
+        <select id="canal">
+          <option value="cocina">Cocina</option>
+          <option value="meseros">Meseros</option>
+          <option value="admin">Admin</option>
+          <option value="broadcast">Broadcast</option>
+        </select>
+        <input
+          id="mensaje"
+          type="text"
+          placeholder="Mensaje"
+          style="width: 300px"
+        />
+        <button onclick="enviarNotificacion()">Enviar</button>
+      </div>
+
+      <h3>Mensajes recibidos:</h3>
+      <div id="messages"></div>
+    </div>
+
+    <script>
+      let socket = null;
+
+      function conectar() {
+        const token = document.getElementById('token').value;
+
+        if (!token) {
+          alert('Por favor ingresa un token JWT');
+          return;
+        }
+
+        socket = io('http://localhost:3000/notifications', {
+          auth: { token },
+        });
+
+        socket.on('connect', () => {
+          addMessage('✅ Conectado exitosamente', 'success');
+        });
+
+        socket.on('conexion:exitosa', (data) => {
+          addMessage(
+            '📡 Conexión establecida: ' + JSON.stringify(data, null, 2),
+            'success',
+          );
+        });
+
+        socket.on('notificacion:nueva', (data) => {
+          addMessage('🔔 Nueva notificación: ' + JSON.stringify(data, null, 2));
+        });
+
+        socket.on('chat:nuevo_mensaje', (data) => {
+          addMessage('💬 Chat: ' + JSON.stringify(data, null, 2));
+        });
+
+        socket.on('usuario:conectado', (data) => {
+          addMessage('👤 Usuario conectado: ' + data.usuario.username);
+        });
+
+        socket.on('usuario:desconectado', (data) => {
+          addMessage('👤 Usuario desconectado: ' + data.usuario.username);
+        });
+
+        socket.on('disconnect', () => {
+          addMessage('❌ Desconectado', 'error');
+        });
+
+        socket.on('error', (error) => {
+          addMessage('❌ Error: ' + error, 'error');
+        });
+      }
+
+      function desconectar() {
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+        }
+      }
+
+      function enviarNotificacion() {
+        if (!socket) {
+          alert('Primero debes conectarte');
+          return;
+        }
+
+        const canal = document.getElementById('canal').value;
+        const mensaje = document.getElementById('mensaje').value;
+
+        socket.emit(
+          'enviar:notificacion',
+          {
+            tipo: 'sistema.alerta',
+            titulo: 'Test notificación',
+            mensaje: mensaje,
+            canal: canal,
+            prioridad: 'normal',
+          },
+          (response) => {
+            if (response.success) {
+              addMessage('✅ Notificación enviada', 'success');
+            } else {
+              addMessage('❌ Error: ' + response.message, 'error');
+            }
+          },
+        );
+      }
+
+      function addMessage(msg, className = '') {
+        const div = document.createElement('div');
+        div.className = 'message ' + className;
+        div.textContent = new Date().toLocaleTimeString() + ' - ' + msg;
+        document.getElementById('messages').prepend(div);
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,207 @@
+<!-- backend/src/email/templates/cfdi-cancelado.hbs -->
+
+
+<html lang='es'>
+  <head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>Factura Cancelada</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f4f4f4;
+      }
+      .container {
+        background-color: #ffffff;
+        border-radius: 8px;
+        padding: 30px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        text-align: center;
+        padding-bottom: 20px;
+        border-bottom: 3px solid #e74c3c;
+        margin-bottom: 30px;
+      }
+      .header h1 {
+        color: #e74c3c;
+        margin: 0;
+        font-size: 28px;
+      }
+      .header p {
+        color: #7f8c8d;
+        margin: 5px 0 0 0;
+        font-size: 14px;
+      }
+      .alert-box {
+        background-color: #ffe6e6;
+        border-left: 4px solid #e74c3c;
+        padding: 20px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+      .alert-box h2 {
+        color: #c0392b;
+        margin-top: 0;
+        font-size: 18px;
+      }
+      .info-box {
+        background-color: #ecf0f1;
+        padding: 20px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #bdc3c7;
+      }
+      .info-row:last-child {
+        border-bottom: none;
+      }
+      .info-label {
+        font-weight: bold;
+        color: #34495e;
+      }
+      .info-value {
+        color: #7f8c8d;
+        text-align: right;
+      }
+      .uuid {
+        background-color: #e74c3c;
+        color: white;
+        padding: 15px;
+        border-radius: 5px;
+        text-align: center;
+        font-size: 12px;
+        word-break: break-all;
+        margin: 20px 0;
+      }
+      .motivo-box {
+        background-color: #fff3cd;
+        border: 2px solid #ffc107;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+      .motivo-box h3 {
+        margin-top: 0;
+        color: #856404;
+      }
+      .footer {
+        text-align: center;
+        padding-top: 20px;
+        margin-top: 30px;
+        border-top: 2px solid #ecf0f1;
+        color: #95a5a6;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class='container'>
+      <!-- Encabezado -->
+      <div class='header'>
+        <h1>❌ Factura Cancelada</h1>
+        <p>Notificación de Cancelación de CFDI</p>
+      </div>
+
+      <!-- Alerta -->
+      <div class='alert-box'>
+        <h2>⚠️ Importante</h2>
+        <p>Le informamos que la siguiente factura electrónica ha sido
+          <strong>cancelada</strong>
+          ante el Servicio de Administración Tributaria (SAT).</p>
+      </div>
+
+      <!-- Saludo -->
+      <p>Estimado/a <strong>{{receptorNombre}}</strong>,</p>
+
+      <!-- UUID -->
+      <div class='uuid'>
+        <strong>UUID CANCELADO:</strong><br />
+        {{uuid}}
+      </div>
+
+      <!-- Información del CFDI -->
+      <div class='info-box'>
+        <div class='info-row'>
+          <span class='info-label'>Folio:</span>
+          <span class='info-value'>{{serie}}-{{folio}}</span>
+        </div>
+        <div class='info-row'>
+          <span class='info-label'>Fecha de Emisión:</span>
+          <span class='info-value'>{{fechaEmision}}</span>
+        </div>
+        <div class='info-row'>
+          <span class='info-label'>Fecha de Cancelación:</span>
+          <span class='info-value'>{{fechaCancelacion}}</span>
+        </div>
+        <div class='info-row'>
+          <span class='info-label'>Total Original:</span>
+          <span class='info-value'>${{total}} MXN</span>
+        </div>
+      </div>
+
+      <!-- Motivo de Cancelación -->
+      <div class='motivo-box'>
+        <h3>📋 Motivo de Cancelación</h3>
+        <p><strong>Código:</strong> {{motivoCancelacion}}</p>
+        <p><strong>Descripción:</strong> {{motivoDescripcion}}</p>
+
+        {{#if uuidSustitucion}}
+          <p style='margin-top: 15px;'>
+            <strong>UUID de Sustitución:</strong><br />
+            <span
+              style='font-size: 11px; word-break: break-all;'
+            >{{uuidSustitucion}}</span>
+          </p>
+        {{/if}}
+      </div>
+
+      <!-- Información Adicional -->
+      <div style='margin: 30px 0;'>
+        <h3 style='color: #2c3e50;'>📌 ¿Qué significa esto?</h3>
+        <ul style='line-height: 1.8;'>
+          <li>Esta factura ya
+            <strong>no es válida</strong>
+            para efectos fiscales</li>
+          <li>No debe ser considerada en su contabilidad</li>
+          <li>El acuse de cancelación se adjunta a este correo</li>
+          {{#if uuidSustitucion}}
+            <li>Se ha emitido una nueva factura que sustituye a esta</li>
+          {{/if}}
+        </ul>
+      </div>
+
+      {{#if mostrarMensajePersonalizado}}
+        <div class='info-box'>
+          <p style='margin: 0; font-style: italic;'>
+            {{mensajePersonalizado}}
+          </p>
+        </div>
+      {{/if}}
+
+      <!-- Pie de página -->
+      <div class='footer'>
+        <p><strong>{{emisorNombre}}</strong></p>
+        <p>RFC: {{emisorRfc}}</p>
+        {{#if emailContacto}}
+          <p>📧 {{emailContacto}} | 📞 {{telefonoContacto}}</p>
+        {{/if}}
+        <p style='margin-top: 15px;'>
+          Si tiene dudas sobre esta cancelación, por favor contáctenos.
+        </p>
+        <p style='margin-top: 10px; font-size: 11px;'>
+          Este es un correo automático, por favor no responda a este mensaje.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

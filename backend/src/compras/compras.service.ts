@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import {
   Injectable,
   NotFoundException,
@@ -15,6 +17,10 @@ import { Prisma, estado_compra } from '@prisma/client';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { CacheUtil } from '../cache/cache-util.service';
+import { AccionCompra } from './dto/cambiar-estado-compra.dto';
+import { AprobarCompraDto } from './dto/aprobar-compra.dto';
+import { DecisionAprobacion } from './dto/aprobar-compra.dto';
+import { subDays } from 'date-fns';
 
 @Injectable()
 export class ComprasService {
@@ -450,5 +456,282 @@ export class ComprasService {
 
     await this.cache.set(key, result, this.STATS_TTL);
     return result;
+  }
+  // Método para cambiar estado con validación
+  async cambiarEstado(
+    idCompra: number,
+    accion: string,
+    idUsuario: number,
+    observaciones?: string,
+  ): Promise<any> {
+    const compra = await this.findOne(idCompra);
+    const estadoActual = compra.estado;
+    let nuevoEstado: estado_compra | null = null; // ← CORRECCIÓN: inicializar como null
+
+    // Validar transiciones de estado
+    const transicionesValidas: Record<string, string[]> = {
+      borrador: ['pendiente', 'cancelada'],
+      pendiente: ['enviada', 'cancelada'],
+      enviada: ['autorizada', 'cancelada'],
+      autorizada: ['recibida', 'cancelada'],
+      recibida: ['pagada'],
+      pagada: [],
+      cancelada: [],
+    };
+
+    // Determinar nuevo estado según acción
+    switch (accion) {
+      case 'guardar_borrador':
+        nuevoEstado = estado_compra.borrador;
+        break;
+      case 'enviar':
+        if (estadoActual === 'borrador') {
+          nuevoEstado = estado_compra.pendiente;
+        } else if (estadoActual === 'pendiente') {
+          nuevoEstado = estado_compra.enviada;
+        }
+        break;
+      case 'aprobar':
+        nuevoEstado = estado_compra.autorizada;
+        break;
+      case 'rechazar':
+        nuevoEstado = estado_compra.cancelada;
+        break;
+      case 'marcar_pagada':
+        if (estadoActual !== 'recibida') {
+          throw new BadRequestException(
+            'Solo se pueden marcar como pagadas las compras recibidas',
+          );
+        }
+        nuevoEstado = estado_compra.pagada;
+        break;
+      case 'cancelar':
+        nuevoEstado = estado_compra.cancelada;
+        break;
+      default:
+        throw new BadRequestException('Acción no válida');
+    }
+
+    // ← CORRECCIÓN: Validar que nuevoEstado fue asignado
+    if (!nuevoEstado) {
+      throw new BadRequestException(
+        `No se puede ejecutar la acción: ${accion}`,
+      );
+    }
+
+    // Validar transición
+    if (!transicionesValidas[estadoActual]?.includes(nuevoEstado)) {
+      throw new BadRequestException(
+        `No se puede cambiar de ${estadoActual} a ${nuevoEstado}`,
+      );
+    }
+
+    // Realizar cambio en transacción
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Actualizar compra
+      const compraActualizada = await tx.compras.update({
+        where: { id_compra: idCompra },
+        data: { estado: nuevoEstado as estado_compra },
+      });
+
+      // Registrar en historial
+      await tx.compra_historial_estados.create({
+        data: {
+          id_compra: idCompra,
+          estado_anterior: estadoActual,
+          estado_nuevo: nuevoEstado,
+          id_usuario: idUsuario,
+          observaciones,
+        },
+      });
+
+      return compraActualizada;
+    });
+
+    // Invalidar caché si tienes cacheUtil
+    // await this.cacheUtil.invalidate({
+    //   keys: [this.keyById(idCompra)],
+    //   patterns: ['compras:list:*', 'compras:stats:*'],
+    // });
+
+    return updated;
+  }
+
+  async getHistorialEstados(idCompra: number): Promise<any> {
+    return this.prisma.compra_historial_estados.findMany({
+      where: { id_compra: idCompra },
+      include: {
+        usuarios: {
+          select: { username: true, personas: true },
+        },
+      },
+      orderBy: { fecha_cambio: 'desc' },
+    });
+  }
+
+  async solicitarAprobacion(
+    idCompra: number,
+    nivelesRequeridos: number[],
+  ): Promise<any> {
+    const compra = await this.findOne(idCompra);
+
+    if (compra.estado !== estado_compra.pendiente) {
+      throw new BadRequestException(
+        'Solo se pueden solicitar aprobaciones para compras pendientes',
+      );
+    }
+
+    // Crear registros de aprobación para cada nivel
+    const aprobaciones = await Promise.all(
+      nivelesRequeridos.map((nivel) =>
+        this.prisma.compra_aprobaciones.create({
+          data: {
+            id_compra: idCompra,
+            nivel,
+            estado: 'pendiente',
+          },
+        }),
+      ),
+    );
+
+    return aprobaciones;
+  }
+
+  async procesarAprobacion(dto: any): Promise<any> {
+    const { id_compra, id_usuario_aprueba, decision, nivel, observaciones } =
+      dto;
+
+    const aprobacion = await this.prisma.compra_aprobaciones.findFirst({
+      where: {
+        id_compra,
+        nivel,
+        estado: 'pendiente',
+      },
+    });
+
+    if (!aprobacion) {
+      throw new NotFoundException(
+        'No hay aprobación pendiente para este nivel',
+      );
+    }
+
+    // Actualizar aprobación
+    const updated = await this.prisma.compra_aprobaciones.update({
+      where: { id_aprobacion: aprobacion.id_aprobacion },
+      data: {
+        estado:
+          decision === DecisionAprobacion.APROBAR ? 'aprobada' : 'rechazada',
+        id_usuario: id_usuario_aprueba,
+        fecha_aprobacion: new Date(),
+        observaciones,
+      },
+    });
+
+    // Si se rechaza, cancelar la compra
+    if (decision === DecisionAprobacion.RECHAZAR) {
+      await this.cambiarEstado(
+        id_compra,
+        'cancelar',
+        id_usuario_aprueba,
+        'Rechazada en aprobación de nivel ' + nivel,
+      );
+    }
+
+    // Si se aprueba, verificar si todos los niveles están aprobados
+    if (decision === DecisionAprobacion.APROBAR) {
+      const todasAprobaciones = await this.prisma.compra_aprobaciones.findMany({
+        where: { id_compra },
+      });
+
+      const todasAprobadas = todasAprobaciones.every(
+        (a) => a.estado === 'aprobada',
+      );
+
+      if (todasAprobadas) {
+        await this.cambiarEstado(
+          id_compra,
+          'aprobar',
+          id_usuario_aprueba,
+          'Todas las aprobaciones completadas',
+        );
+      }
+    }
+
+    return updated;
+  }
+
+  async generarReporteRecepcion(idCompra: number): Promise<any> {
+    const compra = await this.prisma.compras.findUnique({
+      where: { id_compra: idCompra },
+      include: {
+        proveedores: true,
+        compra_detalle: {
+          include: {
+            productos: true,
+            unidades_medida: true,
+          },
+        },
+        usuarios_compras_id_usuario_autorizaTousuarios: {
+          select: { username: true, personas: true },
+        },
+      },
+    });
+
+    if (!compra || compra.estado !== estado_compra.recibida) {
+      throw new BadRequestException(
+        'Solo se pueden generar reportes de compras recibidas',
+      );
+    }
+
+    // Calcular diferencias
+    const diferencias = compra.compra_detalle.map((detalle) => {
+      const diferencia =
+        Number(detalle.cantidad_recibida || 0) -
+        Number(detalle.cantidad_pedida);
+      const porcentaje =
+        (Math.abs(diferencia) / Number(detalle.cantidad_pedida)) * 100;
+
+      return {
+        producto: detalle.productos.nombre,
+        cantidad_pedida: detalle.cantidad_pedida,
+        cantidad_recibida: detalle.cantidad_recibida,
+        diferencia,
+        porcentaje_diferencia: Math.round(porcentaje * 10) / 10,
+        estado:
+          diferencia === 0
+            ? 'completo'
+            : diferencia > 0
+              ? 'excedente'
+              : 'faltante',
+      };
+    });
+
+    const tieneDiferencias = diferencias.some((d) => d.diferencia !== 0);
+
+    return {
+      compra: {
+        folio: compra.folio_compra,
+        proveedor: compra.proveedores.nombre_comercial,
+        fecha_pedido: compra.fecha_pedido,
+        fecha_recepcion: compra.fecha_recepcion,
+        total_items: compra.compra_detalle.length,
+      },
+      detalle_recepcion: diferencias,
+      resumen: {
+        items_completos: diferencias.filter((d) => d.diferencia === 0).length,
+        items_con_faltante: diferencias.filter((d) => d.diferencia < 0).length,
+        items_con_excedente: diferencias.filter((d) => d.diferencia > 0).length,
+        requiere_seguimiento: tieneDiferencias,
+      },
+      quien_recibio:
+        compra.usuarios_compras_id_usuario_autorizaTousuarios?.username,
+      observaciones: compra.observaciones,
+    };
+  }
+  private determinarPrioridad(diasInventario: number): string {
+    if (diasInventario <= 7) return 'Urgente';
+    if (diasInventario <= 15) return 'Alta';
+    if (diasInventario <= 30) return 'Media';
+    return 'Baja';
   }
 }

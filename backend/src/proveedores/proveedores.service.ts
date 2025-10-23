@@ -15,6 +15,8 @@ import { Prisma } from '@prisma/client';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { CacheUtil } from '../cache/cache-util.service';
+import { EvaluarProveedorDto } from '../compras/dto/evaluar-proveedor.dto';
+import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class ProveedoresService {
@@ -392,5 +394,126 @@ export class ProveedoresService {
 
     await this.cache.set(key, data, this.DEFAULT_TTL);
     return data;
+  }
+  async evaluarProveedor(dto: EvaluarProveedorDto): Promise<any> {
+    // Calcular calificación global
+    const calificacionGlobal =
+      (dto.calidad_productos +
+        dto.tiempo_entrega +
+        dto.atencion_cliente +
+        dto.precios_competitivos +
+        dto.comunicacion) /
+      5;
+
+    // Crear evaluación
+    const evaluacion = await this.prisma.proveedor_evaluaciones.create({
+      data: {
+        id_proveedor: dto.id_proveedor,
+        id_usuario_evalua: dto.id_usuario_evalua,
+        id_compra: dto.id_compra,
+        calificacion_global: calificacionGlobal,
+        calidad_productos: dto.calidad_productos,
+        tiempo_entrega: dto.tiempo_entrega,
+        atencion_cliente: dto.atencion_cliente,
+        precios_competitivos: dto.precios_competitivos,
+        comunicacion: dto.comunicacion,
+        comentarios: dto.comentarios,
+      },
+    });
+
+    // Actualizar calificación promedio del proveedor
+    await this.actualizarCalificacionProveedor(dto.id_proveedor);
+
+    return evaluacion;
+  }
+
+  private async actualizarCalificacionProveedor(
+    idProveedor: number,
+  ): Promise<void> {
+    const evaluaciones = await this.prisma.proveedor_evaluaciones.aggregate({
+      where: { id_proveedor: idProveedor },
+      _avg: { calificacion_global: true },
+    });
+
+    if (evaluaciones._avg.calificacion_global) {
+      await this.prisma.proveedores.update({
+        where: { id_proveedor: idProveedor },
+        data: {
+          calificacion: evaluaciones._avg.calificacion_global
+            ? Math.round(Number(evaluaciones._avg.calificacion_global))
+            : null,
+        },
+      });
+    }
+  }
+
+  async getEvaluacionesProveedor(
+    idProveedor: number,
+    limite?: number,
+  ): Promise<any> {
+    return this.prisma.proveedor_evaluaciones.findMany({
+      where: { id_proveedor: idProveedor },
+      include: {
+        usuarios: {
+          select: { username: true, personas: true },
+        },
+        compras: {
+          select: { folio_compra: true, fecha_pedido: true },
+        },
+      },
+      orderBy: { fecha_evaluacion: 'desc' },
+      take: limite || 20,
+    });
+  }
+
+  async getReporteDesempenoProveedor(idProveedor: number): Promise<any> {
+    const evaluaciones = await this.getEvaluacionesProveedor(idProveedor, 100);
+
+    if (evaluaciones.length === 0) {
+      return {
+        mensaje: 'No hay evaluaciones disponibles',
+      };
+    }
+
+    // Calcular promedios por aspecto
+    const promedios = {
+      calidad_productos: 0,
+      tiempo_entrega: 0,
+      atencion_cliente: 0,
+      precios_competitivos: 0,
+      comunicacion: 0,
+    };
+
+    evaluaciones.forEach((ev: any) => {
+      promedios.calidad_productos += ev.calidad_productos;
+      promedios.tiempo_entrega += ev.tiempo_entrega;
+      promedios.atencion_cliente += ev.atencion_cliente;
+      promedios.precios_competitivos += ev.precios_competitivos;
+      promedios.comunicacion += ev.comunicacion;
+    });
+
+    const total = evaluaciones.length;
+    Object.keys(promedios).forEach((key) => {
+      promedios[key] = Math.round((promedios[key] / total) * 10) / 10;
+    });
+
+    // Identificar fortalezas y áreas de mejora
+    const aspectos = Object.entries(promedios);
+    aspectos.sort((a, b) => b[1] - a[1]);
+
+    return {
+      total_evaluaciones: total,
+      calificacion_global: evaluaciones[0]?.proveedores?.calificacion || 0,
+      promedios_por_aspecto: promedios,
+      fortalezas: aspectos.slice(0, 2).map((a) => ({
+        aspecto: a[0],
+        calificacion: a[1],
+      })),
+      areas_mejora: aspectos.slice(-2).map((a) => ({
+        aspecto: a[0],
+        calificacion: a[1],
+      })),
+      evaluaciones_recientes: evaluaciones.slice(0, 5),
+    };
   }
 }

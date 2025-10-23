@@ -1,80 +1,53 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import {
-  Controller as Controller2,
-  Get as Get2,
-  Post as Post2,
-  Body as Body2,
-  Patch as Patch2,
-  Param as Param2,
-  Query as Query2,
-  UseGuards as UseGuards2,
-  ParseIntPipe as ParseIntPipe2,
-  HttpStatus as HttpStatus2,
-  HttpCode as HttpCode2,
-  Request as Request2,
-  BadRequestException,
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  ParseIntPipe,
+  Request,
 } from '@nestjs/common';
 import { SesionesMesaService } from './sesiones-mesas.service';
 import { AbrirSesionDto } from './dto/abrir-sesion.dto';
 import { CerrarSesionDto } from './dto/cerrar-sesion.dto';
-import { ActualizarSesionDto } from './dto/actualizar-sesion.dto';
 import { TransferirMesaDto } from './dto/transferir-mesa.dto';
-import { QuerySesionesDto } from './dto/query-sesiones.dto';
-import { JwtAuthGuard as JwtAuthGuard2 } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import {
-  ApiBearerAuth as ApiBearerAuth2,
-  ApiTags as ApiTags2,
-  ApiOperation as ApiOperation2,
-  ApiResponse as ApiResponse2,
-  ApiParam as ApiParam2,
+  ApiBearerAuth,
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
 } from '@nestjs/swagger';
 
-@ApiTags2('Sesiones de Mesa')
-@ApiBearerAuth2('JWT-auth')
-@Controller2('sesiones-mesa')
-@UseGuards2(JwtAuthGuard2)
+@ApiTags('Sesiones Mesa')
+@ApiBearerAuth('JWT-auth')
+@Controller('sesiones-mesa')
+@UseGuards(JwtAuthGuard)
 export class SesionesMesaController {
   constructor(private readonly sesionesMesaService: SesionesMesaService) {}
 
-  @Post2('abrir')
-  @HttpCode2(HttpStatus2.CREATED)
-  @ApiOperation2({
-    summary: 'Abrir nueva sesión de mesa',
+  @Post('abrir')
+  @ApiOperation({
+    summary: 'Abrir sesión de mesa',
     description:
-      'Inicia una sesión en una mesa disponible. Registra hostess/mesero que abre, número de comensales y nombre del cliente. Cambia estado de mesa a Ocupada automáticamente. Valida que la mesa no tenga sesión activa.',
+      'Abre una nueva sesión para una mesa. Valida que la mesa esté disponible y no tenga sesión activa. Cambia estado de mesa a "Ocupada". Usado al sentar clientes.',
   })
-  @ApiResponse2({
+  @ApiResponse({
     status: 201,
     description: 'Sesión abierta exitosamente',
-    schema: {
-      example: {
-        success: true,
-        message: 'Sesión abierta exitosamente',
-        data: {
-          id_sesion: 123,
-          id_mesa: 15,
-          numero_mesa: 'M-15',
-          numero_comensales: 4,
-          nombre_cliente: 'Juan Pérez',
-          fecha_hora_apertura: '2025-10-15T20:00:00.000Z',
-          estado: 'abierta',
-          usuario_apertura: 'María López',
-        },
-      },
-    },
   })
-  @ApiResponse2({
+  @ApiResponse({
     status: 400,
-    description: 'La mesa ya tiene una sesión activa',
+    description: 'Mesa no disponible o ya tiene sesión activa',
   })
-  @ApiResponse2({
-    status: 404,
-    description: 'Mesa no encontrada o inactiva',
-  })
-  async abrirSesion(@Body2() abrirSesionDto: AbrirSesionDto, @Request2() req) {
+  async abrirSesion(@Body() abrirSesionDto: AbrirSesionDto, @Request() req) {
     const sesion = await this.sesionesMesaService.abrirSesion(
       abrirSesionDto,
-      req.user.userId,
+      req.user.id_usuario,
     );
     return {
       success: true,
@@ -83,33 +56,29 @@ export class SesionesMesaController {
     };
   }
 
-  @Patch2(':id/cerrar')
-  @ApiOperation2({
+  @Patch(':id/cerrar')
+  @ApiOperation({
     summary: 'Cerrar sesión de mesa',
     description:
-      'Finaliza una sesión activa. Registra usuario que cierra y validaciones: todas las órdenes deben estar pagadas, no debe haber cuenta pendiente. Libera la mesa cambiando su estado a Disponible o Requiere Limpieza.',
+      'Cierra una sesión de mesa activa. Valida que no haya órdenes pendientes de pago. Cambia estado de mesa a "Por limpiar". Calcula tiempo total de sesión y consumo.',
   })
-  @ApiParam2({
-    name: 'id',
-    description: 'ID de la sesión',
-    example: 123,
-  })
-  @ApiResponse2({
+  @ApiResponse({
     status: 200,
     description: 'Sesión cerrada exitosamente',
   })
-  @ApiResponse2({
+  @ApiResponse({
     status: 400,
-    description: 'No se puede cerrar: hay órdenes sin pagar',
+    description: 'Sesión tiene órdenes pendientes de pago',
   })
   async cerrarSesion(
-    @Param2('id', ParseIntPipe2) id: number,
-    @Body2() cerrarSesionDto: CerrarSesionDto,
-    @Request2() req,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cerrarSesionDto: CerrarSesionDto,
+    @Request() req,
   ) {
+    // ✅ CORRECCIÓN: Orden correcto de parámetros (id, userId, dto)
     const sesion = await this.sesionesMesaService.cerrarSesion(
       id,
-      req.user.userId,
+      req.user.id_usuario,
       cerrarSesionDto,
     );
     return {
@@ -119,85 +88,100 @@ export class SesionesMesaController {
     };
   }
 
-  @Get2('activas')
-  @ApiOperation2({
-    summary: 'Listar sesiones activas',
+  @Patch(':id/pausar')
+  @ApiOperation({
+    summary: 'Pausar sesión de mesa',
     description:
-      'Obtiene todas las sesiones en estado abierto con información de mesa, comensales, tiempo transcurrido y órdenes. Vista principal para meseros y gerencia.',
+      'Pausa temporalmente una sesión (ej: cliente sale a fumar). Estado de mesa cambia a "Pausada". Permite reanudar después. Usado para mesas temporalmente desocupadas.',
   })
-  @ApiResponse2({
-    status: 200,
-    description: 'Lista de sesiones activas',
-  })
-  async getActivas() {
-    const sesiones = await this.sesionesMesaService.getActivas();
+  async pausarSesion(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    const sesion = await this.sesionesMesaService.pausarSesion(
+      id,
+      req.user.id_usuario,
+    );
     return {
       success: true,
-      data: sesiones,
-    };
-  }
-
-  @Get2('buscar')
-  @ApiOperation2({
-    summary: 'Buscar sesiones con filtros',
-    description:
-      'Búsqueda avanzada de sesiones por estado, fecha, mesa, usuario o nombre de cliente. Soporta rangos de fecha para reportes históricos.',
-  })
-  @ApiResponse2({
-    status: 200,
-    description: 'Sesiones encontradas según filtros',
-  })
-  async buscar(@Query2() query: QuerySesionesDto) {
-    const sesiones = await this.sesionesMesaService.buscar(query);
-    return {
-      success: true,
-      data: sesiones,
-    };
-  }
-
-  @Get2('mesa/:mesaId')
-  @ApiOperation2({
-    summary: 'Obtener sesión actual de una mesa',
-    description:
-      'Retorna la sesión activa de una mesa específica o null si está disponible. Usado para validaciones y consultas rápidas de estado.',
-  })
-  @ApiParam2({
-    name: 'mesaId',
-    description: 'ID de la mesa',
-    example: 15,
-  })
-  @ApiResponse2({
-    status: 200,
-    description: 'Sesión actual de la mesa o null',
-  })
-  async getSesionByMesa(@Param2('mesaId', ParseIntPipe2) mesaId: number) {
-    const sesion = await this.sesionesMesaService.getSesionByMesa(mesaId);
-    return {
-      success: true,
+      message: 'Sesión pausada exitosamente',
       data: sesion,
     };
   }
 
-  @Get2(':id')
-  @ApiOperation2({
+  @Patch(':id/reanudar')
+  @ApiOperation({
+    summary: 'Reanudar sesión pausada',
+    description:
+      'Reactiva una sesión que estaba pausada. Cambia estado a "Abierta" nuevamente. Registra tiempo de pausa. Usado cuando clientes regresan a la mesa.',
+  })
+  async reanudarSesion(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    const sesion = await this.sesionesMesaService.reanudarSesion(
+      id,
+      req.user.id_usuario,
+    );
+    return {
+      success: true,
+      message: 'Sesión reanudada exitosamente',
+      data: sesion,
+    };
+  }
+
+  @Patch(':id/transferir')
+  @ApiOperation({
+    summary: 'Transferir sesión a otra mesa',
+    description:
+      'Transfiere sesión activa de una mesa a otra. Valida que mesa destino esté disponible. Actualiza estado de ambas mesas. Mantiene órdenes asociadas. Usado al cambiar clientes de mesa.',
+  })
+  async transferirMesa(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() transferirDto: TransferirMesaDto,
+    @Request() req,
+  ) {
+    const sesion = await this.sesionesMesaService.transferirMesa(
+      id,
+      transferirDto,
+      req.user.id_usuario,
+    );
+    return {
+      success: true,
+      message: 'Mesa transferida exitosamente',
+      data: sesion,
+    };
+  }
+
+  @Get()
+  @ApiOperation({
+    summary: 'Listar todas las sesiones',
+    description:
+      'Obtiene lista de todas las sesiones con filtros opcionales. Incluye información de mesa, mesero, órdenes y consumo total. Usado para monitoreo general del restaurante.',
+  })
+  async findAll() {
+    const sesiones = await this.sesionesMesaService.findAll();
+    return {
+      success: true,
+      data: sesiones,
+    };
+  }
+
+  @Get('activas')
+  @ApiOperation({
+    summary: 'Listar sesiones activas',
+    description:
+      'Retorna solo sesiones en estado "Abierta". Incluye tiempo transcurrido y consumo actual. Usado en dashboard de mesas ocupadas.',
+  })
+  async findActivas() {
+    const sesiones = await this.sesionesMesaService.findActivas();
+    return {
+      success: true,
+      data: sesiones,
+    };
+  }
+
+  @Get(':id')
+  @ApiOperation({
     summary: 'Obtener detalle de sesión',
     description:
-      'Información completa de una sesión: datos básicos, todas las órdenes asociadas, pagos realizados, tiempo transcurrido y total consumido.',
+      'Retorna información completa de una sesión: mesa, mesero, comensales, todas las órdenes asociadas, pagos, consumo total, tiempo transcurrido. Usado para consulta detallada.',
   })
-  @ApiParam2({
-    name: 'id',
-    description: 'ID de la sesión',
-    example: 123,
-  })
-  @ApiResponse2({
-    status: 200,
-    description: 'Detalle completo de la sesión',
-  })
-  @ApiResponse2({
-    status: 404,
-    description: 'Sesión no encontrada',
-  })
-  async findOne(@Param2('id', ParseIntPipe2) id: number) {
+  async findOne(@Param('id', ParseIntPipe) id: number) {
     const sesion = await this.sesionesMesaService.findOne(id);
     return {
       success: true,
@@ -205,154 +189,20 @@ export class SesionesMesaController {
     };
   }
 
-  @Get2(':id/resumen')
-  @ApiOperation2({
-    summary: 'Obtener resumen completo de sesión',
+  @Delete(':id')
+  @ApiOperation({
+    summary: 'Cancelar sesión',
     description:
-      'Dashboard de la sesión: todas las órdenes con detalle, desglose de pagos, saldo pendiente, propinas, tiempo total y consumo promedio por comensal. Usado para cierre de cuenta.',
+      'Cancela una sesión de mesa. Solo permite cancelar si no hay órdenes procesadas. Requiere motivo obligatorio. Libera mesa. Usado para cancelaciones por error o cliente que no llega.',
   })
-  @ApiParam2({
-    name: 'id',
-    description: 'ID de la sesión',
-    example: 123,
-  })
-  @ApiResponse2({
-    status: 200,
-    description: 'Resumen financiero y operativo de la sesión',
-  })
-  async getResumen(@Param2('id', ParseIntPipe2) id: number) {
-    const resumen = await this.sesionesMesaService.getResumen(id);
-    return {
-      success: true,
-      data: resumen,
-    };
-  }
-
-  @Patch2(':id/comensales')
-  @ApiOperation2({
-    summary: 'Actualizar número de comensales',
-    description:
-      'Ajusta el número de comensales en una sesión activa. Usado cuando llegan o se retiran personas de la mesa.',
-  })
-  @ApiParam2({
-    name: 'id',
-    description: 'ID de la sesión',
-    example: 123,
-  })
-  @ApiResponse2({
-    status: 200,
-    description: 'Comensales actualizados',
-  })
-  async actualizarComensales(
-    @Param2('id', ParseIntPipe2) id: number,
-    @Body2() dto: ActualizarSesionDto,
-  ) {
-    if (!dto.numero_comensales) {
-      throw new BadRequestException(
-        'Debe proporcionar el número de comensales',
-      );
-    }
-
-    const sesion = await this.sesionesMesaService.actualizarComensales(
+  async cancelarSesion(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    const sesion = await this.sesionesMesaService.cancelarSesion(
       id,
-      dto.numero_comensales,
+      req.user.id_usuario,
     );
     return {
       success: true,
-      message: 'Comensales actualizados',
-      data: sesion,
-    };
-  }
-
-  @Patch2(':id/transferir')
-  @ApiOperation2({
-    summary: 'Transferir sesión a otra mesa',
-    description:
-      'Mueve una sesión activa con todas sus órdenes a otra mesa disponible. Actualiza estados de ambas mesas. Registra usuario que autoriza la transferencia. Usado cuando se requiere cambiar de mesa por capacidad o preferencia del cliente.',
-  })
-  @ApiParam2({
-    name: 'id',
-    description: 'ID de la sesión',
-    example: 123,
-  })
-  @ApiResponse2({
-    status: 200,
-    description: 'Sesión transferida exitosamente',
-  })
-  @ApiResponse2({
-    status: 400,
-    description: 'La mesa destino no está disponible',
-  })
-  async transferirMesa(
-    @Param2('id', ParseIntPipe2) id: number,
-    @Body2() transferirDto: TransferirMesaDto,
-    @Request2() req,
-  ) {
-    const sesion = await this.sesionesMesaService.transferirMesa(
-      id,
-      transferirDto,
-      req.user.userId,
-    );
-    return {
-      success: true,
-      message: 'Sesión transferida exitosamente',
-      data: sesion,
-    };
-  }
-
-  @Patch2(':id/pausar')
-  @ApiOperation2({
-    summary: 'Pausar sesión',
-    description:
-      'Pone la sesión en estado pausado temporalmente. La mesa queda en espera sin liberarse. Usado en casos especiales como espera de cliente que salió momentáneamente.',
-  })
-  @ApiParam2({
-    name: 'id',
-    description: 'ID de la sesión',
-    example: 123,
-  })
-  @ApiResponse2({
-    status: 200,
-    description: 'Sesión pausada',
-  })
-  async pausarSesion(@Param2('id', ParseIntPipe2) id: number, @Request2() req) {
-    const sesion = await this.sesionesMesaService.pausarSesion(
-      id,
-      req.user.userId,
-    );
-    return {
-      success: true,
-      message: 'Sesión pausada',
-      data: sesion,
-    };
-  }
-
-  @Post2(':id/reanudar')
-  @ApiOperation2({
-    summary: 'Reanudar sesión pausada',
-    description:
-      'Reactiva una sesión que estaba en pausa, volviendo a estado abierto. Registra usuario que reanuda.',
-  })
-  @ApiParam2({
-    name: 'id',
-    description: 'ID de la sesión',
-    example: 123,
-  })
-  @ApiResponse2({
-    status: 200,
-    description: 'Sesión reanudada',
-  })
-  async reanudarSesion(
-    @Param2('id', ParseIntPipe2) id: number,
-    @Request2() req,
-  ) {
-    const sesion = await this.sesionesMesaService.reanudarSesion(
-      id,
-      req.user.userId,
-    );
-    return {
-      success: true,
-      message: 'Sesión reanudada',
+      message: 'Sesión cancelada exitosamente',
       data: sesion,
     };
   }

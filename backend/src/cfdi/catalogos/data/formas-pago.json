@@ -1,0 +1,134 @@
+[
+  {
+    "clave": "01",
+    "descripcion": "Efectivo",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "02",
+    "descripcion": "Cheque nominativo",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "03",
+    "descripcion": "Transferencia electrónica de fondos",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "04",
+    "descripcion": "Tarjeta de crédito",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "05",
+    "descripcion": "Monedero electrónico",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "06",
+    "descripcion": "Dinero electrónico",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "08",
+    "descripcion": "Vales de despensa",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "12",
+    "descripcion": "Dación en pago",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "13",
+    "descripcion": "Pago por subrogación",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "14",
+    "descripcion": "Pago por consignación",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "15",
+    "descripcion": "Condonación",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "17",
+    "descripcion": "Compensación",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "23",
+    "descripcion": "Novación",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "24",
+    "descripcion": "Confusión",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "25",
+    "descripcion": "Remisión de deuda",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "26",
+    "descripcion": "Prescripción o caducidad",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "27",
+    "descripcion": "A satisfacción del acreedor",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "28",
+    "descripcion": "Tarjeta de débito",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "29",
+    "descripcion": "Tarjeta de servicios",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "30",
+    "descripcion": "Aplicación de anticipos",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "31",
+    "descripcion": "Intermediario pagos",
+    "vigencia_desde": "2020-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "99",
+    "descripcion": "Por definir",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  }
+]

@@ -11,6 +11,7 @@ import {
   Matches,
   IsArray,
   ValidateNested,
+  ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -242,6 +243,9 @@ export class CreatePromocionDto {
   @IsBoolean()
   activa?: boolean = true;
 
+  // ============================================
+  // ✅ MEJORA: Validación mejorada de array
+  // ============================================
   @ApiPropertyOptional({
     description:
       'Productos o categorías asociados a la promoción (solo si aplicación es producto o categoria)',
@@ -252,5 +256,6 @@ export class CreatePromocionDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ProductoPromocionDto)
+  @ArrayMinSize(0) // ✅ Permitir array vacío
   productos_promocion?: ProductoPromocionDto[];
 }

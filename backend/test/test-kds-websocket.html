@@ -1,0 +1,88 @@
+<html>
+  <head>
+    <title>Test KDS WebSocket</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  </head>
+  <body>
+    <h1>KDS WebSocket Test</h1>
+    <div id="status">Desconectado</div>
+    <br />
+    <button onclick="conectar()">Conectar</button>
+    <button onclick="suscribir()">Suscribir Estación 1</button>
+    <button onclick="solicitarTickets()">Solicitar Tickets</button>
+    <br /><br />
+    <div id="log"></div>
+
+    <script>
+      let socket;
+      const token =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsInVzZXJuYW1lIjoia2FudGFyZXMiLCJyb2wiOiJBZG1pbmlzdHJhZG9yIiwiaWF0IjoxNzYxMDcwODcxLCJleHAiOjE3NjExNTcyNzF9.yK92t3G41o2-bC5E2FLm6Uig1N4SYJsJnYHhlK1qIGI'; // Token JWT
+
+      function log(mensaje) {
+        const div = document.getElementById('log');
+        div.innerHTML += `<p>${new Date().toLocaleTimeString()}: ${mensaje}</p>`;
+      }
+
+      function conectar() {
+        socket = io('http://localhost:3000/kds', {
+          auth: { token: token },
+        });
+
+        socket.on('connect', () => {
+          document.getElementById('status').textContent = 'Conectado';
+          log('✅ Conectado al servidor KDS');
+        });
+
+        socket.on('disconnect', () => {
+          document.getElementById('status').textContent = 'Desconectado';
+          log('❌ Desconectado');
+        });
+
+        socket.on('estado_inicial', (data) => {
+          log('📊 Estado inicial recibido');
+          console.log('Estado inicial:', data);
+        });
+
+        socket.on('tickets_actualizados', (data) => {
+          log('🔄 Tickets actualizados');
+          console.log('Tickets:', data);
+        });
+
+        socket.on('item_actualizado', (data) => {
+          log(`✏️ Item ${data.id_kds_item} actualizado a ${data.estado}`);
+          console.log('Item:', data);
+        });
+
+        socket.on('nuevo_item', (data) => {
+          log('🆕 Nuevo item recibido');
+          console.log('Nuevo item:', data);
+        });
+
+        socket.on('alerta_tiempo', (data) => {
+          log(`⚠️ ALERTA: Item ${data.id_kds_item} - ${data.mensaje}`);
+          console.log('Alerta:', data);
+        });
+      }
+
+      function suscribir() {
+        if (!socket) {
+          alert('Primero conectar');
+          return;
+        }
+        socket.emit('suscribir_estacion', { id_estacion: 1 }, (response) => {
+          log(`✅ Suscrito a ${response.room}`);
+        });
+      }
+
+      function solicitarTickets() {
+        if (!socket) {
+          alert('Primero conectar');
+          return;
+        }
+        socket.emit('solicitar_tickets', { estacion: 1 }, (response) => {
+          log('✅ Tickets solicitados');
+        });
+      }
+    </script>
+  </body>
+</html>

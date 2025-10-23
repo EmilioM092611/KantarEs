@@ -6,11 +6,21 @@ import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
+import { SwaggerTheme } from 'swagger-themes'; // <-- sin tipos extra
 
 // === Agregados (hardening) ===
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { RequestLoggerInterceptor } from './common/logging/request-logger.interceptor';
 import { PinoLogger } from 'nestjs-pino';
+
+// ============================================
+// ✅ DECLARACIÓN DE TIPO PARA BigInt.toJSON
+// ============================================
+declare global {
+  interface BigInt {
+    toJSON(): string;
+  }
+}
 
 // ==============================
 
@@ -60,6 +70,13 @@ async function bootstrapTracingIfEnabled() {
 }
 
 export async function bootstrap() {
+  // ============================================
+  // ✅ FIX CRÍTICO: Serialización de BigInt a JSON
+  // ============================================
+  BigInt.prototype.toJSON = function () {
+    return this.toString();
+  };
+
   // === Tracing opcional (antes de crear la app) ===
   await bootstrapTracingIfEnabled();
 
@@ -114,7 +131,47 @@ export async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
+
+  // --- Tema oscuro con swagger-themes ---
+  // ⚠️ En 1.4.3 NO se debe pasar 'v3' al constructor (deprecado).
+  const theme = new SwaggerTheme();
+
+  // Tipado defensivo para cubrir diferencias entre versiones (getBuffer vs getStyles)
+  let cssDark: unknown;
+  if (typeof (theme as any).getBuffer === 'function') {
+    cssDark = (theme as any).getBuffer('dark' as any);
+  } else if (typeof (theme as any).getStyles === 'function') {
+    cssDark = (theme as any).getStyles('dark' as any);
+  } else {
+    cssDark = '';
+  }
+  const cssDarkStr = typeof cssDark === 'string' ? cssDark : String(cssDark);
+
+  // ...deja todo igual y solo cambia el setup para sumar CSS:
   SwaggerModule.setup('api', app, document, {
+    customCss:
+      cssDarkStr +
+      `
+/* Candados en las filas de endpoints */
+.swagger-ui .authorization__btn.locked svg,
+.swagger-ui .opblock-summary .authorization__btn.locked svg {
+  color:#f59e0b !important;      /* ámbar */
+  fill:#f59e0b !important;
+  opacity:1 !important;
+}
+.swagger-ui .authorization__btn.unlocked svg,
+.swagger-ui .opblock-summary .authorization__btn.unlocked svg {
+  color:#22c55e !important;      /* verde */
+  fill:#22c55e !important;
+  opacity:1 !important;
+}
+
+/* Por si el SVG no hereda color, cubrimos paths también */
+.swagger-ui .authorization__btn svg path { fill: currentColor !important; }
+
+/* (Opcional) Botón “Authorize” de la barra superior */
+.swagger-ui .btn.authorize svg { color:#22c55e !important; fill:#22c55e !important; }
+    `,
     swaggerOptions: { persistAuthorization: true },
     customSiteTitle: 'KantarEs API',
   });

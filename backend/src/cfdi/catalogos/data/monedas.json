@@ -1,0 +1,50 @@
+[
+  {
+    "clave": "MXN",
+    "descripcion": "Peso Mexicano",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "USD",
+    "descripcion": "Dólar estadounidense",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "EUR",
+    "descripcion": "Euro",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "CAD",
+    "descripcion": "Dólar Canadiense",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "GBP",
+    "descripcion": "Libra Esterlina",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "JPY",
+    "descripcion": "Yen",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "CHF",
+    "descripcion": "Franco Suizo",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "XXX",
+    "descripcion": "Los códigos asignados para las transacciones en que intervenga ninguna moneda",
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  }
+]

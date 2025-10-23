@@ -1,7 +1,6 @@
-// backend/src/productos/recetas/recetas.module.ts
 import { Module } from '@nestjs/common';
-import { RecetasController } from './recetas.controller';
 import { RecetasService } from './recetas.service';
+import { RecetasController } from './recetas.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({

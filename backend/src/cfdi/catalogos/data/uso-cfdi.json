@@ -1,0 +1,194 @@
+[
+  {
+    "clave": "G01",
+    "descripcion": "Adquisición de mercancías",
+    "fisica": true,
+    "moral": true,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "G02",
+    "descripcion": "Devoluciones, descuentos o bonificaciones",
+    "fisica": true,
+    "moral": true,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "G03",
+    "descripcion": "Gastos en general",
+    "fisica": true,
+    "moral": true,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "I01",
+    "descripcion": "Construcciones",
+    "fisica": false,
+    "moral": true,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "I02",
+    "descripcion": "Mobiliario y equipo de oficina por inversiones",
+    "fisica": false,
+    "moral": true,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "I03",
+    "descripcion": "Equipo de transporte",
+    "fisica": false,
+    "moral": true,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "I04",
+    "descripcion": "Equipo de cómputo y accesorios",
+    "fisica": false,
+    "moral": true,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "I05",
+    "descripcion": "Dados, troqueles, moldes, matrices y herramental",
+    "fisica": false,
+    "moral": true,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "I06",
+    "descripcion": "Comunicaciones telefónicas",
+    "fisica": false,
+    "moral": true,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "I07",
+    "descripcion": "Comunicaciones satelitales",
+    "fisica": false,
+    "moral": true,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "I08",
+    "descripcion": "Otra maquinaria y equipo",
+    "fisica": false,
+    "moral": true,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "D01",
+    "descripcion": "Honorarios médicos, dentales y gastos hospitalarios",
+    "fisica": true,
+    "moral": false,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "D02",
+    "descripcion": "Gastos médicos por incapacidad o discapacidad",
+    "fisica": true,
+    "moral": false,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "D03",
+    "descripcion": "Gastos funerales",
+    "fisica": true,
+    "moral": false,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "D04",
+    "descripcion": "Donativos",
+    "fisica": true,
+    "moral": false,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "D05",
+    "descripcion": "Intereses reales efectivamente pagados por créditos hipotecarios (casa habitación)",
+    "fisica": true,
+    "moral": false,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "D06",
+    "descripcion": "Aportaciones voluntarias al SAR",
+    "fisica": true,
+    "moral": false,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "D07",
+    "descripcion": "Primas por seguros de gastos médicos",
+    "fisica": true,
+    "moral": false,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "D08",
+    "descripcion": "Gastos de transportación escolar obligatoria",
+    "fisica": true,
+    "moral": false,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "D09",
+    "descripcion": "Depósitos en cuentas para el ahorro, primas que tengan como base planes de pensiones",
+    "fisica": true,
+    "moral": false,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "D10",
+    "descripcion": "Pagos por servicios educativos (colegiaturas)",
+    "fisica": true,
+    "moral": false,
+    "vigencia_desde": "2017-01-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "S01",
+    "descripcion": "Sin efectos fiscales",
+    "fisica": true,
+    "moral": true,
+    "vigencia_desde": "2021-12-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "CP01",
+    "descripcion": "Pagos",
+    "fisica": true,
+    "moral": true,
+    "vigencia_desde": "2021-12-01",
+    "vigencia_hasta": null
+  },
+  {
+    "clave": "CN01",
+    "descripcion": "Nómina",
+    "fisica": true,
+    "moral": true,
+    "vigencia_desde": "2021-12-01",
+    "vigencia_hasta": null
+  }
+]

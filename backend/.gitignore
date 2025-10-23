@@ -56,3 +56,9 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
+
+# Ignorar esquemas XSD del SAT (deben descargarse desde la fuente oficial)
+*.xsd
+
+# Mantener el README con instrucciones
+!README.md

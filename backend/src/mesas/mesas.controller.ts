@@ -255,7 +255,7 @@ export class MesasController {
   @ApiOperation({
     summary: 'Cambiar estado de mesa',
     description:
-      'Cambia el estado operativo de la mesa: Disponible, Ocupada, Reservada, En limpieza. Valida transiciones permitidas según estado actual.',
+      'Cambia el estado operativo de la mesa: Disponible, Ocupada, Reservada, Por limpiar y En mantenimiento . Valida transiciones permitidas según estado actual.',
   })
   @ApiParam({
     name: 'id',

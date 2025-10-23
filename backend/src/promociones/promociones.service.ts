@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   Injectable,
   NotFoundException,
@@ -52,11 +54,15 @@ export class PromocionesService {
       );
     }
 
+    // Filtrar valores null y undefined del array
+    const productosValidos = (createPromocionDto.productos_promocion || [])
+      .filter((p) => p !== null && p !== undefined)
+      .filter((p) => p.id_producto || p.id_categoria);
+
     // Validar productos/categorías según aplicación
     if (
       createPromocionDto.aplicacion !== 'total_cuenta' &&
-      (!createPromocionDto.productos_promocion ||
-        createPromocionDto.productos_promocion.length === 0)
+      productosValidos.length === 0
     ) {
       throw new BadRequestException(
         `Debe especificar al menos un ${createPromocionDto.aplicacion === 'producto' ? 'producto' : 'categoría'} para la promoción`,
@@ -83,15 +89,15 @@ export class PromocionesService {
         });
 
         // Crear las relaciones con productos/categorías si existen
-        if (productos_promocion && productos_promocion.length > 0) {
+        if (productosValidos.length > 0) {
           await tx.producto_promocion.createMany({
-            data: productos_promocion.map((pp) => ({
+            data: productosValidos.map((pp) => ({
               id_promocion: promocion.id_promocion,
               id_producto: pp.id_producto,
               id_categoria: pp.id_categoria,
               precio_especial: pp.precio_especial,
-              cantidad_requerida: pp.cantidad_requerida,
-              cantidad_bonificada: pp.cantidad_bonificada,
+              cantidad_requerida: pp.cantidad_requerida || 1,
+              cantidad_bonificada: pp.cantidad_bonificada || 0,
             })),
           });
         }

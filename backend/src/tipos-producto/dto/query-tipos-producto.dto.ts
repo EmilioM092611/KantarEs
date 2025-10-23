@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsBoolean, IsEnum } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { AreaPreparacion } from 'src/categorias/dto/create-categoria.dto';
+import { AreaPreparacion } from '../../categorias/dto/create-categoria.dto';
 
 export class QueryTiposProductoDto {
   @ApiProperty({ required: false })

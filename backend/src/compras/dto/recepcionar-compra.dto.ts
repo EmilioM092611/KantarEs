@@ -7,21 +7,39 @@ import {
   MaxLength,
   IsArray,
   ValidateNested,
+  IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RecepcionarItemDto {
-  @ApiProperty({ example: 1, description: 'ID del detalle de compra' })
+  @ApiProperty()
   @IsInt()
-  @Type(() => Number)
   id_detalle: number;
 
-  @ApiProperty({ example: '100.0000', description: 'Cantidad recibida' })
-  @Type(() => Number)
+  @ApiProperty()
   cantidad_recibida: number;
-}
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  lote?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  fecha_caducidad?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  observaciones_item?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  estado_mercancia?: 'excelente' | 'bueno' | 'aceptable' | 'defectuoso';
+}
 export class RecepcionarCompraDto {
   @ApiProperty({ example: 1, description: 'ID del usuario que autoriza' })
   @IsInt()
@@ -51,4 +69,20 @@ export class RecepcionarCompraDto {
   @IsOptional()
   @IsString()
   observaciones?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  nombre_quien_recibe?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  fotos_recepcion?: string[]; // URLs de fotos
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  recepcion_completa?: boolean;
 }

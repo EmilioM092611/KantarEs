@@ -1,0 +1,261 @@
+<!-- backend/src/email/templates/cfdi-timbrado.hbs -->
+
+
+<html lang='es'>
+  <head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>Factura Electrónica</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f4f4f4;
+      }
+      .container {
+        background-color: #ffffff;
+        border-radius: 8px;
+        padding: 30px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        text-align: center;
+        padding-bottom: 20px;
+        border-bottom: 3px solid #3498db;
+        margin-bottom: 30px;
+      }
+      .header h1 {
+        color: #3498db;
+        margin: 0;
+        font-size: 28px;
+      }
+      .header p {
+        color: #7f8c8d;
+        margin: 5px 0 0 0;
+        font-size: 14px;
+      }
+      .info-box {
+        background-color: #ecf0f1;
+        padding: 20px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+      .info-box h2 {
+        color: #2c3e50;
+        margin-top: 0;
+        font-size: 18px;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 10px;
+      }
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #bdc3c7;
+      }
+      .info-row:last-child {
+        border-bottom: none;
+      }
+      .info-label {
+        font-weight: bold;
+        color: #34495e;
+      }
+      .info-value {
+        color: #7f8c8d;
+        text-align: right;
+      }
+      .uuid {
+        background-color: #3498db;
+        color: white;
+        padding: 15px;
+        border-radius: 5px;
+        text-align: center;
+        font-size: 12px;
+        word-break: break-all;
+        margin: 20px 0;
+      }
+      .total {
+        background-color: #27ae60;
+        color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: center;
+        font-size: 24px;
+        font-weight: bold;
+        margin: 20px 0;
+      }
+      .attachments {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 15px;
+        margin: 20px 0;
+        border-radius: 5px;
+      }
+      .attachments h3 {
+        margin-top: 0;
+        color: #856404;
+        font-size: 16px;
+      }
+      .attachments ul {
+        margin: 10px 0;
+        padding-left: 20px;
+      }
+      .attachments li {
+        color: #856404;
+        padding: 5px 0;
+      }
+      .footer {
+        text-align: center;
+        padding-top: 20px;
+        margin-top: 30px;
+        border-top: 2px solid #ecf0f1;
+        color: #95a5a6;
+        font-size: 12px;
+      }
+      .button {
+        display: inline-block;
+        background-color: #3498db;
+        color: white;
+        padding: 12px 30px;
+        text-decoration: none;
+        border-radius: 5px;
+        margin: 20px 0;
+        font-weight: bold;
+      }
+      .button:hover {
+        background-color: #2980b9;
+      }
+    </style>
+  </head>
+  <body>
+    <div class='container'>
+      <!-- Encabezado -->
+      <div class='header'>
+        <h1>✅ Factura Electrónica</h1>
+        <p>Comprobante Fiscal Digital por Internet (CFDI)</p>
+      </div>
+
+      <!-- Saludo -->
+      <p>Estimado/a <strong>{{receptorNombre}}</strong>,</p>
+      <p>Le enviamos su Factura Electrónica (CFDI) correspondiente a su compra.</p>
+
+      <!-- UUID -->
+      <div class='uuid'>
+        <strong>UUID (Folio Fiscal):</strong><br />
+        {{uuid}}
+      </div>
+
+      <!-- Información del CFDI -->
+      <div class='info-box'>
+        <h2>📄 Datos de la Factura</h2>
+        <div class='info-row'>
+          <span class='info-label'>Folio:</span>
+          <span class='info-value'>{{serie}}-{{folio}}</span>
+        </div>
+        <div class='info-row'>
+          <span class='info-label'>Fecha de Emisión:</span>
+          <span class='info-value'>{{fechaEmision}}</span>
+        </div>
+        <div class='info-row'>
+          <span class='info-label'>Fecha de Timbrado:</span>
+          <span class='info-value'>{{fechaTimbrado}}</span>
+        </div>
+        <div class='info-row'>
+          <span class='info-label'>Método de Pago:</span>
+          <span class='info-value'>{{metodoPago}}</span>
+        </div>
+      </div>
+
+      <!-- Emisor y Receptor -->
+      <div class='info-box'>
+        <h2>🏢 Emisor</h2>
+        <div class='info-row'>
+          <span class='info-label'>Razón Social:</span>
+          <span class='info-value'>{{emisorNombre}}</span>
+        </div>
+        <div class='info-row'>
+          <span class='info-label'>RFC:</span>
+          <span class='info-value'>{{emisorRfc}}</span>
+        </div>
+      </div>
+
+      <div class='info-box'>
+        <h2>👤 Receptor</h2>
+        <div class='info-row'>
+          <span class='info-label'>Nombre:</span>
+          <span class='info-value'>{{receptorNombre}}</span>
+        </div>
+        <div class='info-row'>
+          <span class='info-label'>RFC:</span>
+          <span class='info-value'>{{receptorRfc}}</span>
+        </div>
+        <div class='info-row'>
+          <span class='info-label'>Uso CFDI:</span>
+          <span class='info-value'>{{usoCfdi}}</span>
+        </div>
+      </div>
+
+      <!-- Total -->
+      <div class='total'>
+        TOTAL: ${{total}}
+        MXN
+      </div>
+
+      <!-- Archivos Adjuntos -->
+      <div class='attachments'>
+        <h3>📎 Archivos Adjuntos</h3>
+        <p>Este correo incluye los siguientes archivos:</p>
+        <ul>
+          <li><strong>XML:</strong>
+            Archivo digital del CFDI (válido ante el SAT)</li>
+          <li><strong>PDF:</strong> Representación impresa de la factura</li>
+        </ul>
+        <p style='font-size: 12px; margin-top: 15px;'>
+          <strong>Importante:</strong>
+          Conserve estos archivos para efectos fiscales. El archivo XML es el
+          documento oficial ante el SAT.
+        </p>
+      </div>
+
+      <!-- Instrucciones -->
+      <div style='margin: 30px 0;'>
+        <h3 style='color: #2c3e50;'>📋 ¿Qué hacer con estos archivos?</h3>
+        <ul style='line-height: 1.8;'>
+          <li>Guarde ambos archivos (XML y PDF) en un lugar seguro</li>
+          <li>El XML es necesario para su contabilidad y declaraciones</li>
+          <li>Puede verificar su factura en el portal del SAT</li>
+          <li>Si tiene dudas, contáctenos</li>
+        </ul>
+      </div>
+
+      <!-- Botón de verificación (opcional) -->
+      {{#if mostrarBotonVerificar}}
+        <div style='text-align: center;'>
+          <a
+            href='https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx'
+            class='button'
+            target='_blank'
+          >
+            Verificar en el SAT
+          </a>
+        </div>
+      {{/if}}
+
+      <!-- Pie de página -->
+      <div class='footer'>
+        <p><strong>{{emisorNombre}}</strong></p>
+        <p>RFC: {{emisorRfc}}</p>
+        {{#if emailContacto}}
+          <p>📧 {{emailContacto}} | 📞 {{telefonoContacto}}</p>
+        {{/if}}
+        <p style='margin-top: 15px; font-size: 11px;'>
+          Este es un correo automático, por favor no responda a este mensaje.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

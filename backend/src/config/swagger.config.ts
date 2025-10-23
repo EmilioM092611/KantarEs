@@ -44,6 +44,11 @@ export function setupSwagger(app: INestApplication): void {
     .addTag('CFDI', 'Facturación electrónica')
     .addTag('Auditoría', 'Logs y trazabilidad')
     .addTag('Catálogos', 'Catálogos generales del sistema')
+    .addTag(
+      'Configuración del Sistema',
+      'Parámetros y ajustes globales del restaurante',
+    ) // ← AGREGAR ESTA LÍNEA
+    .addTag('Notificaciones en Tiempo Real', 'WebSockets y notificaciones push')
     .addTag('Health', 'Endpoints de salud del sistema')
     .build();
 

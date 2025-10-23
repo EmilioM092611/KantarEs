@@ -14,6 +14,7 @@ import { seedCFDI } from './seed-cfdi';
 import { seedRecetaInsumos } from './seed-receta-insumos';
 import { seedProductoCombo } from './seed-producto-combo';
 import { seedAuditoria } from './seed-auditoria';
+import { seedConfiguracion } from './seed-configuracion';
 
 const prisma = new PrismaClient();
 
@@ -22,6 +23,9 @@ async function main() {
 
   try {
     // ORDEN IMPORTANTE: Respetar las dependencias entre tablas
+    // 0. Configuración del sistema (PRIMERO)
+    console.log('\n📍 Paso 0: Configuración del Sistema');
+    await seedConfiguracion();
 
     // 1. Promociones (independiente)
     console.log('\n📍 Paso 1: Promociones');

@@ -13,8 +13,8 @@ export const pinoConfig: LoggerModuleAsyncParams = {
               options: { translateTime: 'SYS:standard', singleLine: true },
             }
           : undefined,
-        autoLogging: false, // we'll log via interceptor to add context
-        genReqId: (req: any) => req?.id, // use our correlation id from middleware
+        autoLogging: false,
+        genReqId: (req: any) => req?.id,
         redact: {
           paths: [
             'req.headers.authorization',

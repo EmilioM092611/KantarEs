@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Abrir test-kds-websocket.html (Edge)",
+      "type": "msedge",
+      "request": "launch",
+      "file": "d:/KantarEs/backend/test/test-kds-websocket.html",
+      "userDataDir": true
+    }
+  ]
+}

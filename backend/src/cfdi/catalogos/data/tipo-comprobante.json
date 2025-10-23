@@ -1,0 +1,22 @@
+[
+  {
+    "clave": "I",
+    "descripcion": "Ingreso"
+  },
+  {
+    "clave": "E",
+    "descripcion": "Egreso"
+  },
+  {
+    "clave": "T",
+    "descripcion": "Traslado"
+  },
+  {
+    "clave": "N",
+    "descripcion": "Nómina"
+  },
+  {
+    "clave": "P",
+    "descripcion": "Pago"
+  }
+]

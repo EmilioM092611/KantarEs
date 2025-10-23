@@ -88,9 +88,10 @@ export class OrdenesController {
   })
   @ApiResponse({ status: 404, description: 'Mesa o sesión no encontrada' })
   async create(@Body() createOrdenDto: CreateOrdenDto, @Request() req) {
+    // ✅ CORRECCIÓN: Usar id_usuario en lugar de userId
     const orden = await this.ordenesService.create(
       createOrdenDto,
-      req.user.userId,
+      req.user.id_usuario,
     );
     return {
       success: true,
@@ -480,10 +481,11 @@ export class OrdenesController {
     @Body() dto: CambiarEstadoOrdenDto,
     @Request() req,
   ) {
+    // ✅ CORRECCIÓN: Usar id_usuario en lugar de userId
     const orden = await this.ordenesService.cambiarEstado(
       id,
       dto,
-      req.user.userId,
+      req.user.id_usuario,
     );
     return {
       success: true,
@@ -650,13 +652,14 @@ export class OrdenesController {
   @ApiResponse({ status: 401, description: 'No autorizado' })
   @ApiResponse({ status: 404, description: 'Orden no encontrada' })
   async remove(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    // ✅ CORRECCIÓN: Usar id_usuario en lugar de userId
     const orden = await this.ordenesService.cambiarEstado(
       id,
       {
         id_estado_orden: 8,
         motivo: 'Cancelada por usuario',
       },
-      req.user.userId,
+      req.user.id_usuario,
     );
     return {
       success: true,

@@ -13,7 +13,16 @@ import { CacheToolsModule } from './cache/cache-tools.module';
 import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'crypto';
 
+import { BullModule } from '@nestjs/bull';
+
+import { ConfiguracionModule } from './configuracion/configuracion.module';
+import { NotificacionesModule } from './notificaciones/notificaciones.module';
+import { ImpresionModule } from './impresion/impresion.module';
+
 import { EventsModule } from './events/events.module';
+
+import { ScheduleModule } from '@nestjs/schedule'; // ← IMPORTANTE
+import { JwtModule } from '@nestjs/jwt'; // ← IMPORTANTE para WsJwtGuard
 
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -52,13 +61,33 @@ import { EstadosMesaModule } from './estados-mesa/estados-mesa.module';
 import { EstadosOrdenModule } from './estados-orden/estados-orden.module';
 import { RecetasModule } from './recetas/recetas.module';
 import { CombosModule } from './combos/combos.module';
-// import { LoginAttemptsModule } from './auth/login-attempts/login-attempts.module'; // COMENTADO hasta corregir schema
+import { ReservacionesModule } from './reservaciones/reservaciones.module';
+
+import { LoginAttemptsModule } from './auth/login-attempts/login-attempts.module'; // COMENTADO hasta corregir schema
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+    }),
+
+    //AGREGAR CONFIGURACIÓN DE BULL
+    BullModule.forRoot({
+      redis: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379', 10),
+        password: process.env.REDIS_PASSWORD || undefined,
+        maxRetriesPerRequest: null,
+        enableReadyCheck: false,
+      },
+    }),
+    ScheduleModule.forRoot(), // ← AGREGAR para cron jobs
+    JwtModule.register({
+      // ← AGREGAR para WebSocket auth
+      global: true,
+      secret: process.env.JWT_SECRET,
+      signOptions: { expiresIn: '24h' },
     }),
     // Rate limiting global
     ThrottlerModule.forRoot([
@@ -67,16 +96,7 @@ import { CombosModule } from './combos/combos.module';
         limit: Number(process.env.RATE_LIMIT ?? 100),
       },
     ]),
-    // COMENTAR BullModule si no vas a usar refresh de MV con jobs
-    // BullModule.forRoot({
-    //   redis: {
-    //     host: process.env.REDIS_HOST || 'localhost',
-    //     port: parseInt(process.env.REDIS_PORT || '6379'),
-    //   },
-    // }),
-    // BullModule.registerQueue({
-    //   name: 'reportes',
-    // }),
+
     LoggerModule.forRoot({
       pinoHttp: {
         level: process.env.LOG_LEVEL ?? 'info',
@@ -94,6 +114,9 @@ import { CombosModule } from './combos/combos.module';
     CacheToolsModule,
 
     EventsModule,
+    ConfiguracionModule,
+    NotificacionesModule,
+    ImpresionModule,
 
     PrismaModule,
     AuthModule,
@@ -118,6 +141,7 @@ import { CombosModule } from './combos/combos.module';
     MovimientosInventarioModule,
     ProveedoresModule,
     PromocionesModule,
+    ReservacionesModule,
     EstadosMesaModule,
     EstadosOrdenModule,
     HistorialPreciosModule,
@@ -132,8 +156,7 @@ import { CombosModule } from './combos/combos.module';
     CfdiModule,
     MotorPromocionesModule,
     HealthModule,
-
-    // LoginAttemptsModule, // COMENTADO
+    LoginAttemptsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -145,22 +145,40 @@ export class PagosService {
   }
 
   async create(createPagoDto: CreatePagoDto) {
+    // ============================================
+    // ✅ MEJORA: Validación mejorada de orden y saldo
+    // ============================================
     // 1. Validar orden y obtener saldo pendiente
     const { orden, totalOrden, totalPagado, saldoPendiente } =
       await this.validarOrden(createPagoDto.id_orden);
 
-    // 2. Validar que el monto no exceda el saldo pendiente
-    const montoPago = Number(createPagoDto.monto);
-    if (montoPago > saldoPendiente) {
+    // 2. Validar saldo pendiente (mejorado)
+    if (saldoPendiente <= 0) {
       throw new BadRequestException(
-        `El monto del pago ($${montoPago}) excede el saldo pendiente ($${saldoPendiente})`,
+        `Esta orden ya está completamente pagada. ` +
+          `Total de la orden: $${totalOrden.toFixed(2)}, ` +
+          `Total pagado: $${totalPagado.toFixed(2)}`,
       );
     }
 
-    // 3. Validar método de pago
+    // 3. Validar que el monto no exceda el saldo pendiente
+    const montoPago = Number(createPagoDto.monto);
+
+    if (montoPago <= 0) {
+      throw new BadRequestException('El monto del pago debe ser mayor a cero');
+    }
+
+    if (montoPago > saldoPendiente) {
+      throw new BadRequestException(
+        `El monto del pago ($${montoPago.toFixed(2)}) excede el saldo pendiente ($${saldoPendiente.toFixed(2)}). ` +
+          `Total de la orden: $${totalOrden.toFixed(2)}, ya pagado: $${totalPagado.toFixed(2)}`,
+      );
+    }
+
+    // 4. Validar método de pago
     await this.validarMetodoPago(createPagoDto.id_metodo_pago, createPagoDto);
 
-    // 4. Validar que el usuario existe
+    // 5. Validar que el usuario existe
     const usuario = await this.prisma.usuarios.findUnique({
       where: { id_usuario: createPagoDto.id_usuario_cobra },
     });
@@ -171,7 +189,7 @@ export class PagosService {
       );
     }
 
-    // 5. Usar transacción para crear pago y verificar si orden se salda
+    // 6. Usar transacción para crear pago y verificar si orden se salda
     return await this.prisma.$transaction(async (tx) => {
       // Generar folio
       const folio = await this.generarFolio();

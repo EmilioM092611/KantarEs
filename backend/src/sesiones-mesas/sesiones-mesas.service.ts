@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   Injectable,
   NotFoundException,
@@ -50,16 +51,36 @@ export class SesionesMesaService {
 
     // Iniciar transacción para crear sesión y actualizar mesa
     return this.prisma.$transaction(async (tx) => {
-      // Crear sesión
+      // Crear sesión con relación correcta
       const sesion = await tx.sesiones_mesa.create({
         data: {
-          id_mesa: abrirSesionDto.id_mesa,
-          id_usuario_apertura: userId,
           fecha_hora_apertura: new Date(),
           numero_comensales: abrirSesionDto.numero_comensales,
           nombre_cliente: abrirSesionDto.nombre_cliente,
           observaciones: abrirSesionDto.observaciones,
           estado: 'abierta',
+          // Conectar con la mesa existente
+          mesas: {
+            connect: { id_mesa: abrirSesionDto.id_mesa },
+          },
+          // Conectar con el usuario de apertura
+          usuarios_sesiones_mesa_id_usuario_aperturaTousuarios: {
+            connect: { id_usuario: userId },
+          },
+        },
+        include: {
+          mesas: true,
+          usuarios_sesiones_mesa_id_usuario_aperturaTousuarios: {
+            select: {
+              username: true,
+              personas: {
+                select: {
+                  nombre: true,
+                  apellido_paterno: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -122,6 +143,18 @@ export class SesionesMesaService {
         },
         include: {
           mesas: true,
+          usuarios_sesiones_mesa_id_usuario_aperturaTousuarios: {
+            select: {
+              username: true,
+              personas: true,
+            },
+          },
+          usuarios_sesiones_mesa_id_usuario_cierreTousuarios: {
+            select: {
+              username: true,
+              personas: true,
+            },
+          },
         },
       });
 
@@ -135,6 +168,87 @@ export class SesionesMesaService {
       });
 
       return sesionCerrada;
+    });
+  }
+
+  async findAll() {
+    return this.prisma.sesiones_mesa.findMany({
+      include: {
+        mesas: true,
+        usuarios_sesiones_mesa_id_usuario_aperturaTousuarios: {
+          select: {
+            username: true,
+            personas: {
+              select: {
+                nombre: true,
+                apellido_paterno: true,
+              },
+            },
+          },
+        },
+        usuarios_sesiones_mesa_id_usuario_cierreTousuarios: {
+          select: {
+            username: true,
+            personas: {
+              select: {
+                nombre: true,
+                apellido_paterno: true,
+              },
+            },
+          },
+        },
+        ordenes: {
+          select: {
+            id_orden: true,
+            folio: true,
+            total: true,
+            estados_orden: true,
+          },
+        },
+      },
+      orderBy: {
+        fecha_hora_apertura: 'desc',
+      },
+    });
+  }
+
+  async findActivas() {
+    return this.prisma.sesiones_mesa.findMany({
+      where: {
+        estado: 'abierta',
+      },
+      include: {
+        mesas: true,
+        usuarios_sesiones_mesa_id_usuario_aperturaTousuarios: {
+          select: {
+            username: true,
+            personas: {
+              select: {
+                nombre: true,
+                apellido_paterno: true,
+              },
+            },
+          },
+        },
+        ordenes: {
+          where: {
+            estados_orden: {
+              nombre: {
+                not: 'pagada',
+              },
+            },
+          },
+          select: {
+            id_orden: true,
+            folio: true,
+            total: true,
+            estados_orden: true,
+          },
+        },
+      },
+      orderBy: {
+        fecha_hora_apertura: 'desc',
+      },
     });
   }
 
@@ -261,7 +375,7 @@ export class SesionesMesaService {
         fecha_apertura: sesion.fecha_hora_apertura,
         fecha_cierre: sesion.fecha_hora_cierre,
         estado: sesion.estado,
-        comensales: sesion.numero_comensales ?? 1, // Manejar null con valor por defecto
+        comensales: sesion.numero_comensales ?? 1,
         cliente: sesion.nombre_cliente,
         mesero: sesion.usuarios_sesiones_mesa_id_usuario_aperturaTousuarios,
       },
@@ -359,7 +473,6 @@ export class SesionesMesaService {
       throw new BadRequestException('Mesa destino no disponible');
     }
 
-    // Usar valor por defecto si numero_comensales es null
     const numeroComensales = sesion.numero_comensales ?? 1;
 
     if (mesaDestino.capacidad_personas < numeroComensales) {
@@ -441,6 +554,75 @@ export class SesionesMesaService {
       include: {
         mesas: true,
       },
+    });
+  }
+
+  async cancelarSesion(id: number, userId: number, motivo?: string) {
+    // Verificar que la sesión existe
+    const sesion = await this.prisma.sesiones_mesa.findUnique({
+      where: { id_sesion: id },
+      include: {
+        ordenes: {
+          include: {
+            estados_orden: true,
+          },
+        },
+      },
+    });
+
+    if (!sesion) {
+      throw new NotFoundException('Sesión no encontrada');
+    }
+
+    // Verificar que no hay órdenes procesadas
+    const ordenesActivas = sesion.ordenes.filter(
+      (orden) =>
+        orden.estados_orden.nombre !== 'cancelada' &&
+        orden.estados_orden.nombre !== 'pagada',
+    );
+
+    if (ordenesActivas.length > 0) {
+      throw new BadRequestException(
+        'No se puede cancelar una sesión con órdenes activas',
+      );
+    }
+
+    // Cancelar la sesión
+    return this.prisma.$transaction(async (tx) => {
+      // Actualizar sesión
+      const sesionCancelada = await tx.sesiones_mesa.update({
+        where: { id_sesion: id },
+        data: {
+          estado: 'cancelada',
+          motivo_cancelacion: motivo || 'Cancelada por usuario',
+          fecha_hora_cierre: new Date(),
+          usuarios_sesiones_mesa_id_usuario_cierreTousuarios: {
+            connect: { id_usuario: userId },
+          },
+        },
+        include: {
+          mesas: true,
+          usuarios_sesiones_mesa_id_usuario_aperturaTousuarios: {
+            select: {
+              username: true,
+              personas: true,
+            },
+          },
+        },
+      });
+
+      // Liberar mesa (estado disponible = 1)
+      await tx.mesas.update({
+        where: { id_mesa: sesion.id_mesa },
+        data: {
+          estados_mesa: {
+            connect: { id_estado_mesa: 1 }, // Disponible
+          },
+          requiere_limpieza: false,
+        },
+      });
+
+      return sesionCancelada;
     });
   }
 

@@ -1,16 +1,12 @@
 import { Module } from '@nestjs/common';
-import { ScheduleModule } from '@nestjs/schedule';
-import { ReportesController } from './reportes.controller';
 import { ReportesService } from './reportes.service';
-import { RefreshMvJob } from './jobs/refresh-mv.job';
-import { PrismaService } from '../prisma/prisma.service';
+import { ReportesController } from './reportes.controller';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [
-    ScheduleModule.forRoot(), // Habilita el sistema de tareas programadas
-  ],
+  imports: [PrismaModule],
   controllers: [ReportesController],
-  providers: [ReportesService, PrismaService, RefreshMvJob],
+  providers: [ReportesService],
   exports: [ReportesService],
 })
 export class ReportesModule {}

@@ -10,7 +10,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateOrdenDto, CreateOrdenItemDto } from './dto/create-orden.dto'; // CORREGIDO: Importar ambos
+import { CreateOrdenDto, CreateOrdenItemDto } from './dto/create-orden.dto';
 import { UpdateOrdenDto } from './dto/update-orden.dto';
 import { AddItemDto } from './dto/add-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
@@ -29,6 +29,8 @@ import { estado_orden_detalle, Prisma } from '@prisma/client';
 import { FolioService } from './services/folio.service';
 import { EstadoOrdenNombre } from './enums/orden-estados.enum';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { KdsService } from '../kds/kds.service';
+import { KdsGateway } from '../kds/kds.gateway';
 
 @Injectable()
 export class OrdenesService {
@@ -38,10 +40,14 @@ export class OrdenesService {
     private readonly prisma: PrismaService,
     private readonly folioService: FolioService,
     private readonly eventEmitter: EventEmitter2,
+    private kdsService: KdsService, // ← AGREGAR
+    private kdsGateway: KdsGateway,
   ) {}
 
   // ========== CREAR ORDEN ==========
-  async create(createOrdenDto: CreateOrdenDto, userId: number) {
+  // ========== CREAR ORDEN ==========
+  // ========== CREAR ORDEN ==========
+  async create(createOrdenDto: CreateOrdenDto, userId?: number) {
     // Verificar que la sesión existe y está abierta
     const sesion = await this.prisma.sesiones_mesa.findFirst({
       where: {
@@ -69,26 +75,44 @@ export class OrdenesService {
       throw new BadRequestException('Estado inicial no configurado');
     }
 
+    // ← ELIMINAR EL BLOQUE TRY-CATCH QUE ESTÁ AQUÍ
+
     // Crear la orden con transacción
-    return this.prisma.$transaction(async (tx) => {
-      // Crear orden principal
-      const orden = await tx.ordenes.create({
-        data: {
-          folio,
-          id_sesion_mesa: createOrdenDto.id_sesion_mesa,
-          id_usuario_mesero: userId,
-          id_estado_orden: estadoInicial.id_estado_orden,
-          fecha_hora_orden: new Date(),
-          observaciones: createOrdenDto.observaciones,
-          para_llevar: createOrdenDto.para_llevar || false,
-          subtotal: 0,
-          descuento_porcentaje: 0,
-          descuento_monto: 0,
-          iva_monto: 0,
-          ieps_monto: 0,
-          propina: 0,
-          total: 0,
+    const ordenCreada = await this.prisma.$transaction(async (tx) => {
+      // Preparar datos base de la orden
+      const ordenData: any = {
+        folio,
+        fecha_hora_orden: new Date(),
+        observaciones: createOrdenDto.observaciones,
+        para_llevar: createOrdenDto.para_llevar || false,
+        // ✅ FIX: Convertir números a Prisma.Decimal
+        subtotal: new Prisma.Decimal(0),
+        descuento_porcentaje: new Prisma.Decimal(0),
+        descuento_monto: new Prisma.Decimal(0),
+        iva_monto: new Prisma.Decimal(0),
+        ieps_monto: new Prisma.Decimal(0),
+        propina: new Prisma.Decimal(0),
+        total: new Prisma.Decimal(0),
+        // Conectar con la sesión de mesa existente
+        sesiones_mesa: {
+          connect: { id_sesion: createOrdenDto.id_sesion_mesa },
         },
+        // Conectar con el estado de orden
+        estados_orden: {
+          connect: { id_estado_orden: estadoInicial.id_estado_orden },
+        },
+      };
+
+      // Solo conectar con usuario si userId está definido
+      if (userId !== undefined && userId !== null) {
+        ordenData.usuarios = {
+          connect: { id_usuario: userId },
+        };
+      }
+
+      // Crear orden principal con relaciones correctas
+      const orden = await tx.ordenes.create({
+        data: ordenData,
       });
 
       // Si hay items, agregarlos
@@ -116,9 +140,40 @@ export class OrdenesService {
               mesas: true,
             },
           },
+          usuarios: {
+            select: {
+              username: true,
+              personas: {
+                select: {
+                  nombre: true,
+                  apellido_paterno: true,
+                },
+              },
+            },
+          },
         },
       });
     });
+
+    // ← AGREGAR EL BLOQUE TRY-CATCH AQUÍ (DESPUÉS DE CREAR LA ORDEN)
+    if (!ordenCreada) {
+      throw new BadRequestException('Error al crear la orden');
+    }
+
+    try {
+      // Crear items en KDS automáticamente
+      await this.kdsService.crearItemsKDSDesdeOrden(ordenCreada.id_orden);
+
+      // Notificar por WebSocket
+      await this.kdsGateway.broadcastActualizacion();
+
+      this.logger.log(`Items KDS creados para orden ${ordenCreada.folio}`);
+    } catch (error) {
+      this.logger.error(`Error al crear items KDS: ${error.message}`);
+      // No lanzar error, solo loggear
+    }
+
+    return ordenCreada;
   }
   async update(id: number, updateOrdenDto: UpdateOrdenDto) {
     const orden = await this.findOne(id);

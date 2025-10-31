@@ -468,8 +468,8 @@ model ordenes {
   @@index([id_sesion_mesa], map: "idx_ordenes_sesion")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+
 model pagos {
   id_pago                Int              @id @default(autoincrement())
   folio_pago             String           @unique @db.VarChar(30)
@@ -716,7 +716,7 @@ model roles {
   id_rol       Int        @id @default(autoincrement())
   nombre       String     @unique @db.VarChar(50)
   descripcion  String?    @db.VarChar(200)
-  permisos     Json?
+  permisos     Json?      @default("{}")
   nivel_acceso Int?       @default(1)
   activo       Boolean?   @default(true)
   created_at   DateTime?  @default(now()) @db.Timestamptz(6)
@@ -813,7 +813,7 @@ model usuarios {
   ultimo_acceso                                                   DateTime?                    @db.Timestamptz(6)
   intentos_fallidos                                               Int?                         @default(0)
   bloqueado_hasta                                                 DateTime?                    @db.Timestamptz(6)
-  created_at                                                      DateTime?                    @default(now()) @db.Timestamptz(6)
+  created_at                                                      DateTime?                    @default(now())
   updated_at                                                      DateTime?                    @default(now()) @db.Timestamptz(6)
   deleted_at                                                      DateTime?                    @db.Timestamptz(6)
   auditoria_sistema                                               auditoria_sistema[]

@@ -37,7 +37,10 @@ export class UsuariosService {
         nombre: createUsuarioDto.nombre,
         apellido_paterno: createUsuarioDto.apellido_paterno,
         apellido_materno: createUsuarioDto.apellido_materno,
-        id_genero: 1, // Por defecto
+        fecha_nacimiento: createUsuarioDto.fecha_nacimiento
+          ? new Date(createUsuarioDto.fecha_nacimiento)
+          : null,
+        id_genero: createUsuarioDto.id_genero || 1,
       },
     });
 
@@ -50,7 +53,6 @@ export class UsuariosService {
         telefono: createUsuarioDto.telefono,
         id_persona: persona.id_persona,
         id_rol: createUsuarioDto.id_rol,
-        pin_rapido: createUsuarioDto.pin_rapido,
         activo: true,
       },
       include: {
@@ -74,16 +76,29 @@ export class UsuariosService {
         telefono: true,
         activo: true,
         ultimo_acceso: true,
+        created_at: true,
+        updated_at: true,
+        intentos_fallidos: true,
+        bloqueado_hasta: true,
+        id_persona: true,
+        id_rol: true,
         personas: {
           select: {
+            id_persona: true,
             nombre: true,
             apellido_paterno: true,
             apellido_materno: true,
+            id_genero: true,
+            fecha_nacimiento: true,
           },
         },
         roles: {
           select: {
+            id_rol: true,
             nombre: true,
+            descripcion: true,
+            permisos: true,
+            nivel_acceso: true,
           },
         },
       },
@@ -123,6 +138,13 @@ export class UsuariosService {
       throw new NotFoundException(`Usuario #${id} no encontrado`);
     }
 
+    // 🔍 LOG DE DEBUG - Ver qué datos llegan
+    console.log('🔍 UPDATE USUARIO - DTO recibido:', updateUsuarioDto);
+    console.log(
+      '🔍 UPDATE USUARIO - Campos del DTO:',
+      Object.keys(updateUsuarioDto),
+    );
+
     // Preparar datos de actualización
     const updateData: any = {};
 
@@ -156,22 +178,16 @@ export class UsuariosService {
     if (updateUsuarioDto.telefono !== undefined)
       updateData.telefono = updateUsuarioDto.telefono;
     if (updateUsuarioDto.id_rol) updateData.id_rol = updateUsuarioDto.id_rol;
-    if (updateUsuarioDto.pin_rapido)
-      updateData.pin_rapido = updateUsuarioDto.pin_rapido;
-
-    // Si hay una nueva contraseña, hashearla
-    if (updateUsuarioDto.password) {
-      updateData.password_hash = await bcrypt.hash(
-        updateUsuarioDto.password,
-        10,
-      );
-    }
+    if (updateUsuarioDto.activo !== undefined)
+      updateData.activo = updateUsuarioDto.activo;
 
     // Actualizar datos de persona si se proporcionan
     if (
       updateUsuarioDto.nombre ||
       updateUsuarioDto.apellido_paterno ||
-      updateUsuarioDto.apellido_materno
+      updateUsuarioDto.apellido_materno ||
+      updateUsuarioDto.fecha_nacimiento ||
+      updateUsuarioDto.id_genero
     ) {
       await this.prisma.personas.update({
         where: { id_persona: usuario.id_persona },
@@ -183,9 +199,18 @@ export class UsuariosService {
           ...(updateUsuarioDto.apellido_materno && {
             apellido_materno: updateUsuarioDto.apellido_materno,
           }),
+          ...(updateUsuarioDto.fecha_nacimiento && {
+            fecha_nacimiento: new Date(updateUsuarioDto.fecha_nacimiento),
+          }),
+          ...(updateUsuarioDto.id_genero && {
+            id_genero: updateUsuarioDto.id_genero,
+          }),
         },
       });
     }
+
+    // 🔍 LOG DE DEBUG - Ver qué se va a actualizar
+    console.log('🔍 UPDATE USUARIO - Datos a actualizar:', updateData);
 
     // Actualizar usuario
     const updatedUser = await this.prisma.usuarios.update({
@@ -199,6 +224,48 @@ export class UsuariosService {
 
     const { password_hash, ...result } = updatedUser;
     return result;
+  }
+
+  // ✅ NUEVO MÉTODO: Activar usuario eliminado (soft delete)
+  async activate(id: number) {
+    // Buscar el usuario SIN filtrar por deleted_at
+    const usuario = await this.prisma.usuarios.findUnique({
+      where: {
+        id_usuario: id,
+      },
+    });
+
+    if (!usuario) {
+      throw new NotFoundException(`Usuario #${id} no encontrado`);
+    }
+
+    // Si el usuario ya está activo, no hacer nada
+    if (usuario.activo && !usuario.deleted_at) {
+      throw new ConflictException(
+        `El usuario ${usuario.username} ya está activo`,
+      );
+    }
+
+    // Activar el usuario y restaurar del soft delete
+    const activatedUser = await this.prisma.usuarios.update({
+      where: { id_usuario: id },
+      data: {
+        activo: true,
+        deleted_at: null, // ✅ Restaurar del soft delete
+        bloqueado_hasta: null, // ✅ Quitar bloqueo si lo tiene
+        intentos_fallidos: 0, // ✅ Resetear intentos fallidos
+      },
+      include: {
+        personas: true,
+        roles: true,
+      },
+    });
+
+    const { password_hash, ...result } = activatedUser;
+    return {
+      message: `Usuario ${activatedUser.username} activado correctamente`,
+      usuario: result,
+    };
   }
 
   async remove(id: number) {
@@ -232,7 +299,6 @@ export class UsuariosService {
       }
     }
 
-    // Soft delete
     const deletedUser = await this.prisma.usuarios.update({
       where: { id_usuario: id },
       data: {

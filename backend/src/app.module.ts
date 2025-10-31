@@ -18,6 +18,7 @@ import { BullModule } from '@nestjs/bull';
 import { ConfiguracionModule } from './configuracion/configuracion.module';
 import { NotificacionesModule } from './notificaciones/notificaciones.module';
 import { ImpresionModule } from './impresion/impresion.module';
+import { EmailModule } from './email/email.module';
 
 import { EventsModule } from './events/events.module';
 
@@ -157,6 +158,7 @@ import { LoginAttemptsModule } from './auth/login-attempts/login-attempts.module
     MotorPromocionesModule,
     HealthModule,
     LoginAttemptsModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

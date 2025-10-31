@@ -120,6 +120,35 @@ export class UsuariosController {
     return this.usuariosService.update(id, updateUsuarioDto);
   }
 
+  // ✅ NUEVO ENDPOINT: Activar usuario eliminado
+  @Post(':id/activar')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Activar usuario eliminado',
+    description:
+      'Reactiva un usuario que fue eliminado (soft delete) restaurándolo y habilitándolo nuevamente',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'ID del usuario a activar',
+    example: 1,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Usuario activado exitosamente',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Usuario no encontrado',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'El usuario ya está activo',
+  })
+  activate(@Param('id', ParseIntPipe) id: number) {
+    return this.usuariosService.activate(id);
+  }
+
   @Delete(':id')
   @ApiOperation({
     summary: 'Eliminar usuario (soft delete)',

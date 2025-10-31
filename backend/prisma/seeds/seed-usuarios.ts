@@ -5,8 +5,13 @@ import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+// IDs que NO debes tocar más que para actualizar sus datos
+const PROTECTED_USER_IDS = [1, 2];
+
 async function seedUsuarios() {
-  console.log('🌱 Creando/actualizando usuarios...');
+  console.log(
+    '🌱 Sobrescribiendo usuarios (sin borrar), protegiendo id 1 y 2...',
+  );
 
   const usuariosData = [
     {
@@ -181,55 +186,59 @@ async function seedUsuarios() {
     },
   ];
 
-  for (const data of usuariosData) {
-    const { password, ...usuarioData } = data.usuario;
-    const passwordHash = await bcrypt.hash(password, 10);
+  await prisma.$transaction(async (tx) => {
+    for (const data of usuariosData) {
+      const { password, ...usuarioData } = data.usuario;
+      const passwordHash = await bcrypt.hash(password, 10);
 
-    // Buscar si el usuario ya existe
-    const usuarioExistente = await prisma.usuarios.findUnique({
-      where: { username: usuarioData.username },
-      include: { personas: true },
-    });
-
-    if (usuarioExistente) {
-      // Actualizar persona y usuario existentes
-      await prisma.personas.update({
-        where: { id_persona: usuarioExistente.id_persona },
-        data: data.persona,
-      });
-
-      await prisma.usuarios.update({
+      // ¿Existe por username?
+      const existente = await tx.usuarios.findUnique({
         where: { username: usuarioData.username },
-        data: {
-          ...usuarioData,
-          password_hash: passwordHash,
-          activo: true,
-        },
+        select: { id_usuario: true, id_persona: true },
       });
 
-      console.log(`🔄 Actualizado: ${usuarioData.username}`);
-    } else {
-      // Crear persona nueva
-      const persona = await prisma.personas.create({
-        data: data.persona,
-      });
+      if (existente) {
+        // 1) Actualiza la persona ligada
+        await tx.personas.update({
+          where: { id_persona: existente.id_persona },
+          data: data.persona,
+        });
 
-      // Crear usuario nuevo
-      await prisma.usuarios.create({
-        data: {
-          ...usuarioData,
-          password_hash: passwordHash,
-          id_persona: persona.id_persona,
-          activo: true,
-          intentos_fallidos: 0,
-        },
-      });
+        // 2) Actualiza el usuario (incluye nuevo hash)
+        await tx.usuarios.update({
+          where: { id_usuario: existente.id_usuario },
+          data: {
+            ...usuarioData,
+            password_hash: passwordHash,
+            activo: true,
+            intentos_fallidos: 0,
+          },
+        });
 
-      console.log(`✅ Creado: ${usuarioData.username}`);
+        const tag = PROTECTED_USER_IDS.includes(existente.id_usuario)
+          ? '🔒 protegido'
+          : '🔄 actualizado';
+        console.log(`${tag}: ${usuarioData.username}`);
+      } else {
+        // No existe: crea persona y luego usuario enlazado
+        const persona = await tx.personas.create({ data: data.persona });
+
+        await tx.usuarios.create({
+          data: {
+            ...usuarioData,
+            password_hash: passwordHash,
+            id_persona: persona.id_persona,
+            activo: true,
+            intentos_fallidos: 0,
+          },
+        });
+
+        console.log(`✅ creado: ${usuarioData.username}`);
+      }
     }
-  }
+  });
 
-  console.log('\n✅ Usuarios procesados exitosamente');
+  console.log('\n✅ Seed aplicado sin eliminar registros ni romper FKs.');
 }
 
 seedUsuarios()

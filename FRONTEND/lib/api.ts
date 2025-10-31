@@ -18,7 +18,7 @@ export async function apiCall(endpoint: string, options: RequestInit = {}) {
     // Token expirado o inválido
     localStorage.removeItem("token");
     localStorage.removeItem("auth");
-    window.location.href = "/login";
+    window.location.href = "/";
     return;
   }
 

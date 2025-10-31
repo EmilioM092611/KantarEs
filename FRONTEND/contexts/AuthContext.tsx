@@ -1,4 +1,5 @@
 // FRONTEND/contexts/AuthContext.tsx
+// VERSION CON LOGS DE DIAGNÓSTICO
 "use client";
 
 import React, {
@@ -40,63 +41,101 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
+  const [logoutSuccess, setLogoutSuccess] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
+    console.log("🔍 [AUTH-CONTEXT] Inicializando AuthProvider");
     try {
       const token = localStorage.getItem("token");
       const userStr = localStorage.getItem("user");
+
+      console.log("🔐 [AUTH-CONTEXT] Verificando localStorage:", {
+        hasToken: !!token,
+        hasUser: !!userStr,
+      });
+
       if (token && userStr) {
-        setAuth({ token, user: JSON.parse(userStr) });
+        const user = JSON.parse(userStr);
+        console.log(
+          "✅ [AUTH-CONTEXT] Usuario encontrado en localStorage:",
+          user.email
+        );
+        setAuth({ token, user });
+      } else {
+        console.log(
+          "⚠️ [AUTH-CONTEXT] No hay datos de autenticación en localStorage"
+        );
       }
     } catch (error) {
-      console.error("Error al cargar datos de autenticación:", error);
+      console.error(
+        "❌ [AUTH-CONTEXT] Error al cargar datos de autenticación:",
+        error
+      );
     } finally {
+      console.log("✅ [AUTH-CONTEXT] Carga inicial completada");
       setIsLoading(false);
     }
   }, []);
 
   const login = useCallback(
     (data: AuthData) => {
+      console.log("🚀 [AUTH-CONTEXT] Iniciando proceso de login");
+      console.log("👤 [AUTH-CONTEXT] Usuario:", data.user.email);
+
       setIsLoggingIn(true);
       setLoginSuccess(false);
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      setAuth(data);
+      console.log("💾 [AUTH-CONTEXT] Datos guardados en localStorage");
 
-      // 1. Mostrar la rueda de carga por 1.5 segundos. (SIN CAMBIOS)
+      setAuth(data);
+      console.log("✅ [AUTH-CONTEXT] Estado auth actualizado");
+
       setTimeout(() => {
+        console.log(
+          "✅ [AUTH-CONTEXT] Login exitoso - mostrando animación de éxito"
+        );
         setLoginSuccess(true);
       }, 1500);
 
-      // --- INICIO DE LA CORRECCIÓN ---
-      // 2. Ocultar el loader después de 4 segundos en total.
-      //    (1.5s de carga + 2.5s de éxito).
       setTimeout(() => {
+        console.log("🎬 [AUTH-CONTEXT] Ocultando loader");
         setIsLoggingIn(false);
-      }, 4000); // Antes 3000ms, ahora 4000ms
+      }, 4000);
 
-      // 3. NAVEGAR a la nueva página DESPUÉS de que la animación
-      //    del loader se haya completado.
       setTimeout(() => {
+        console.log("🚀 [AUTH-CONTEXT] Navegando a /dashboard");
         router.push("/dashboard");
-      }, 4300); // Antes 3300ms, ahora 4300ms
-      // --- FIN DE LA CORRECCIÓN ---
+      }, 4300);
     },
     [router]
   );
 
   const logout = useCallback(() => {
+    console.log("🚪 [AUTH-CONTEXT] Iniciando proceso de logout");
     setIsLoggingOut(true);
+    setLogoutSuccess(false); // Muestra el Spinner
+
     setTimeout(() => {
+      console.log(
+        "✅ [AUTH-CONTEXT] Logout - Mostrando pantalla de despedida (Mano)"
+      );
+      setLogoutSuccess(true); // Muestra la Mano
+    }, 2000);
+
+    setTimeout(() => {
+      console.log("🧹 [AUTH-CONTEXT] Limpiando localStorage");
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       setAuth(null);
+
       setTimeout(() => {
+        console.log("🚀 [AUTH-CONTEXT] Redirigiendo a /");
         window.location.href = "/";
       }, 500);
-    }, 2500);
+    }, 3500);
   }, []);
 
   return (
@@ -104,14 +143,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{ auth, isLoading, isLoggingIn, isLoggingOut, login, logout }}
     >
       <AnimatePresence>
+        {/* Flujo de Login (Spinner -> Checkmark) */}
         {isLoggingIn && (
           <FullScreenLoader
             text="Iniciando Sesión..."
             isSuccess={loginSuccess}
+            // No pasamos successIconType, así que usará el default "check"
           />
         )}
+
+        {/* Flujo de Logout (Spinner -> Mano) */}
         {isLoggingOut && (
-          <FullScreenLoader title="¡Hasta pronto!" text="Cerrando Sesión..." />
+          <FullScreenLoader
+            text="Cerrando Sesión..."
+            isSuccess={logoutSuccess}
+            successTitle="¡Hasta pronto!"
+            successText="Cierre de sesión exitoso"
+            successIconType="wave" // <-- CAMBIO: ¡Aquí está la magia!
+          />
         )}
       </AnimatePresence>
 
@@ -132,15 +181,27 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { auth, isLoading } = useAuth();
   const router = useRouter();
 
+  console.log("🔍 [AUTH-GUARD-INTERNO] Verificando...", {
+    isLoading,
+    hasAuth: !!auth,
+    authEmail: auth?.user?.email,
+  });
+
   useEffect(() => {
     if (!isLoading && !auth) {
+      console.log("⚠️ [AUTH-GUARD-INTERNO] No hay auth, redirigiendo a /");
+      console.log("🚀 [AUTH-GUARD-INTERNO] Ejecutando router.push('/')");
       router.push("/");
     }
   }, [auth, isLoading, router]);
 
   if (auth) {
+    console.log(
+      "✅ [AUTH-GUARD-INTERNO] Usuario autenticado, mostrando contenido"
+    );
     return <>{children}</>;
   }
 
+  console.log("⏳ [AUTH-GUARD-INTERNO] Esperando autenticación...");
   return null;
 }

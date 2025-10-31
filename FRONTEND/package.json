@@ -148,6 +148,7 @@
     "@types/react-dom": "^18",
     "concurrently": "^9.2.1",
     "cross-env": "^10.0.0",
+    "electron": "38.4.0",
     "electron-builder": "^25.1.8",
     "electron-is-dev": "3.0.1",
     "electron-store": "^10.1.0",

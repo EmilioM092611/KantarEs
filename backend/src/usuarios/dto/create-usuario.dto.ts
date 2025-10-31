@@ -1,57 +1,61 @@
-import { ApiProperty } from '@nestjs/swagger';
+// ============================================
+// ARCHIVO: backend/src/usuarios/dto/create-usuario.dto.ts
+// ============================================
+
 import {
   IsString,
   IsEmail,
-  IsNotEmpty,
-  MinLength,
   IsOptional,
-  IsNumber,
+  IsInt,
+  MinLength,
+  IsDateString, // ✅ AGREGADO
+  MaxLength,
 } from 'class-validator';
 
 export class CreateUsuarioDto {
-  @ApiProperty({ example: 'mesero01' })
-  @IsString()
-  @IsNotEmpty()
-  username: string;
+  // ==================== DATOS DE PERSONA ====================
 
-  @ApiProperty({ example: 'password123' })
   @IsString()
-  @IsNotEmpty()
-  @MinLength(6)
-  password: string;
-
-  @ApiProperty({ example: 'mesero@kantares.com' })
-  @IsEmail()
-  @IsNotEmpty()
-  email: string;
-
-  @ApiProperty({ example: '555-1234', required: false })
-  @IsString()
-  @IsOptional()
-  telefono?: string;
-
-  @ApiProperty({ example: 'Juan' })
-  @IsString()
-  @IsNotEmpty()
+  @MaxLength(60)
   nombre: string;
 
-  @ApiProperty({ example: 'Pérez' })
   @IsString()
-  @IsNotEmpty()
+  @MaxLength(60)
   apellido_paterno: string;
 
-  @ApiProperty({ example: 'García', required: false })
   @IsString()
+  @MaxLength(60)
   @IsOptional()
   apellido_materno?: string;
 
-  @ApiProperty({ example: 4, description: 'ID del rol (4=Mesero)' })
-  @IsNumber()
-  @IsNotEmpty()
-  id_rol: number;
-
-  @ApiProperty({ example: '1234', required: false })
   @IsString()
+  @MaxLength(20)
   @IsOptional()
-  pin_rapido?: string;
+  telefono?: string;
+
+  // ✅ CAMPO AGREGADO PARA FECHA DE NACIMIENTO
+  @IsDateString()
+  @IsOptional()
+  fecha_nacimiento?: string; // Formato: YYYY-MM-DD (ej: "2000-01-15")
+
+  @IsInt()
+  @IsOptional()
+  id_genero?: number; // 1=Masculino, 2=Femenino, 3=Otro
+
+  // ==================== DATOS DE USUARIO ====================
+
+  @IsString()
+  @MaxLength(50)
+  username: string;
+
+  @IsEmail()
+  @MaxLength(120)
+  email: string;
+
+  @IsString()
+  @MinLength(8)
+  password: string;
+
+  @IsInt()
+  id_rol: number; // 1=Admin, 2=Gerente, 3=Cajero, 4=Mesero, 5=Cocinero, 6=Bartender
 }

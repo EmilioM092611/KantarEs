@@ -4,7 +4,8 @@ import { GeistMono } from "geist/font/mono";
 import { Analytics } from "@vercel/analytics/next";
 import { Suspense } from "react";
 import { PageLoader } from "@/components/page-loader";
-import { AuthProvider } from "@/contexts/AuthContext"; // Importar AuthProvider
+import { AuthProvider } from "@/contexts/AuthContext";
+import { Toaster } from "@/components/ui/toaster"; // 👈 Agregar esto
 import "./globals.css";
 
 export default function RootLayout({
@@ -21,6 +22,8 @@ export default function RootLayout({
           <AuthProvider>{children}</AuthProvider>
         </Suspense>
         <Analytics />
+        {/* 🎯 Toaster para notificaciones en toda la aplicación */}
+        <Toaster />
       </body>
     </html>
   );

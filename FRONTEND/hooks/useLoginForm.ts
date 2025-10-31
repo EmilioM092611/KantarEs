@@ -1,7 +1,11 @@
+// FRONTEND/hooks/useLoginForm.ts
+// Hook mejorado para el login usando authService
+
 "use client";
 
 import { useState } from "react";
 import { useAuth, type AuthData } from "@/contexts/AuthContext";
+import { authService } from "@/lib/api/auth";
 
 export function useLoginForm() {
   const [username, setUsername] = useState("");
@@ -14,53 +18,67 @@ export function useLoginForm() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLoading || isSuccess) return;
+
     setError("");
     setIsLoading(true);
+    setIsSuccess(false); // 🔧 CORRECCIÓN: Asegurar que isSuccess es false al inicio
 
     let wasSuccessful = false;
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      if (!apiUrl) {
-        throw new Error(
-          "Error de configuración: La URL de la API no está definida."
-        );
-      }
-
-      const response = await fetch(`${apiUrl}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+      // ✅ MEJORA: Usar authService en lugar de fetch directo
+      // El backend usa "email" para el campo de username según tu API
+      const response = await authService.login({
+        username: username, // El backend espera "email"
+        password,
       });
-      const data = await response.json();
 
-      if (response.ok && data.access_token) {
-        wasSuccessful = true;
-        setIsSuccess(true);
-        const authData: AuthData = {
-          token: data.access_token,
-          user: {
-            id: data.user.id,
-            username: data.user.username,
-            email: data.user.email,
-            nombre: data.user.nombre || "Usuario KantarEs",
-            rol: data.user.rol,
-          },
-        };
+      // Si llegamos aquí, el login fue exitoso
+      wasSuccessful = true;
+      setIsSuccess(true);
 
-        setTimeout(() => {
-          login(authData);
-        }, 1200);
-      } else {
-        setError(data.message || "Usuario o contraseña incorrectos");
-      }
+      // Preparar datos de autenticación
+      const authData: AuthData = {
+        token: response.access_token,
+        user: {
+          id: response.user.id_usuario,
+          username: response.user.username || response.user.email || "Usuario", // Usar parte del email como username
+          email: response.user.email,
+          nombre:
+            response.user.nombre ||
+            response.user.apellido ||
+            "Usuario KantarEs",
+          rol: response.user.rol,
+        },
+      };
+
+      // Esperar 1.2 segundos antes de redirigir (para animaciones)
+      setTimeout(() => {
+        login(authData);
+      }, 1200);
     } catch (err: any) {
-      console.error("Error de conexión:", err);
-      setError(err.message || "Error de conexión con el servidor");
+      console.error("Error de autenticación:", err);
+
+      // 🔧 CORRECCIÓN: Asegurar que no se llame a login() cuando hay error
+      wasSuccessful = false;
+      setIsSuccess(false);
+
+      // Mensajes de error más específicos
+      if (err.message.includes("401")) {
+        setError("Usuario o contraseña incorrectos");
+      } else if (err.message.includes("Network")) {
+        setError("Error de conexión con el servidor");
+      } else {
+        setError(err.message || "Error al iniciar sesión");
+      }
     } finally {
+      // 🔧 CORRECCIÓN: Solo resetear isLoading si no fue exitoso
+      // Esto previene que el usuario pueda hacer clic nuevamente mientras se redirige
       if (!wasSuccessful) {
         setIsLoading(false);
+        setIsSuccess(false);
       }
+      // Si fue exitoso, isLoading permanece true hasta que se complete la redirección
     }
   };
 

@@ -35,7 +35,8 @@
     "seed": "ts-node prisma/seeds/master-seeder.ts",
     "seed:all": "pnpm run seed",
     "seed:mesas": "ts-node prisma/seed-mesas.ts",
-    "seed:ordenes": "ts-node prisma/seed-ordenes.ts"
+    "seed:ordenes": "ts-node prisma/seed-ordenes.ts",
+    "seed:usuarios": "ts-node prisma/seed-usuarios.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seeds/master-seeder.ts"
@@ -132,6 +133,7 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
   },

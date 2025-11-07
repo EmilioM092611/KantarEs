@@ -6,4 +6,5 @@ export * from "./auth";
 export * from "./usuarios";
 export * from "./ordenes";
 export * from "./productos";
+export * from "./configuracion";
 // Agrega más exports según vayas creando servicios

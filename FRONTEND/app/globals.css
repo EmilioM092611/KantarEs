@@ -199,3 +199,32 @@ body {
 .hover\:scrollbar-thumb-red-300\/80:hover::-webkit-scrollbar-thumb {
   background: rgba(252, 165, 165, 0.8);
 }
+
+/* Cursor pointer para elementos interactivos */
+button,
+[role="button"],
+[type="button"],
+[type="submit"],
+[type="reset"],
+a,
+select,
+[role="tab"],
+[role="switch"],
+[role="checkbox"],
+[role="radio"],
+label[for],
+input[type="checkbox"],
+input[type="radio"],
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Cursor not-allowed para elementos deshabilitados */
+button:disabled,
+[disabled],
+[data-disabled="true"],
+[data-disabled],
+[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}

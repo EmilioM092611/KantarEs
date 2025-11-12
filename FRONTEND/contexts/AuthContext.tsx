@@ -1,5 +1,4 @@
 // FRONTEND/contexts/AuthContext.tsx
-// VERSION CON LOGS DE DIAGNÓSTICO
 "use client";
 
 import React, {
@@ -10,7 +9,7 @@ import React, {
   useCallback,
 } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { FullScreenLoader } from "@/components/full-screen-loader";
 
 export interface AuthData {
@@ -35,6 +34,28 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function Blackout({ show }: { show: boolean }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          key="blackout"
+          className="fixed inset-0 z-[10000] bg-black pointer-events-none transform-gpu"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5, ease: "easeInOut" }}
+          style={{
+            willChange: "opacity, transform",
+            backfaceVisibility: "hidden",
+            contain: "layout paint",
+          }}
+        />
+      )}
+    </AnimatePresence>
+  );
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [auth, setAuth] = useState<AuthData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,127 +63,97 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [logoutSuccess, setLogoutSuccess] = useState(false);
+  const [showBlackout, setShowBlackout] = useState(false);
+
   const router = useRouter();
 
   useEffect(() => {
-    console.log("🔍 [AUTH-CONTEXT] Inicializando AuthProvider");
-    try {
-      const token = localStorage.getItem("token");
-      const userStr = localStorage.getItem("user");
-
-      console.log("🔐 [AUTH-CONTEXT] Verificando localStorage:", {
-        hasToken: !!token,
-        hasUser: !!userStr,
-      });
-
-      if (token && userStr) {
-        const user = JSON.parse(userStr);
-        console.log(
-          "✅ [AUTH-CONTEXT] Usuario encontrado en localStorage:",
-          user.email
-        );
-        setAuth({ token, user });
-      } else {
-        console.log(
-          "⚠️ [AUTH-CONTEXT] No hay datos de autenticación en localStorage"
-        );
-      }
-    } catch (error) {
-      console.error(
-        "❌ [AUTH-CONTEXT] Error al cargar datos de autenticación:",
-        error
-      );
-    } finally {
-      console.log("✅ [AUTH-CONTEXT] Carga inicial completada");
-      setIsLoading(false);
+    const token = localStorage.getItem("token");
+    const userStr = localStorage.getItem("user");
+    if (token && userStr) {
+      setAuth({ token, user: JSON.parse(userStr) });
     }
+    setIsLoading(false);
   }, []);
 
   const login = useCallback(
     (data: AuthData) => {
-      console.log("🚀 [AUTH-CONTEXT] Iniciando proceso de login");
-      console.log("👤 [AUTH-CONTEXT] Usuario:", data.user.email);
-
       setIsLoggingIn(true);
       setLoginSuccess(false);
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      console.log("💾 [AUTH-CONTEXT] Datos guardados en localStorage");
-
       setAuth(data);
-      console.log("✅ [AUTH-CONTEXT] Estado auth actualizado");
 
-      setTimeout(() => {
-        console.log(
-          "✅ [AUTH-CONTEXT] Login exitoso - mostrando animación de éxito"
-        );
-        setLoginSuccess(true);
-      }, 1500);
-
-      setTimeout(() => {
-        console.log("🎬 [AUTH-CONTEXT] Ocultando loader");
-        setIsLoggingIn(false);
-      }, 4000);
-
-      setTimeout(() => {
-        console.log("🚀 [AUTH-CONTEXT] Navegando a /dashboard");
-        router.push("/dashboard");
-      }, 4300);
+      setTimeout(() => setLoginSuccess(true), 1500);
+      setTimeout(() => setIsLoggingIn(false), 4000);
+      setTimeout(() => router.push("/dashboard"), 4300);
     },
     [router]
   );
 
   const logout = useCallback(() => {
-    console.log("🚪 [AUTH-CONTEXT] Iniciando proceso de logout");
     setIsLoggingOut(true);
-    setLogoutSuccess(false); // Muestra el Spinner
+    setLogoutSuccess(false);
 
+    // 1) Mostrar pantalla de despedida (mano)
     setTimeout(() => {
-      console.log(
-        "✅ [AUTH-CONTEXT] Logout - Mostrando pantalla de despedida (Mano)"
-      );
-      setLogoutSuccess(true); // Muestra la Mano
+      setLogoutSuccess(true);
     }, 2000);
 
+    // 2) Iniciar blackout un poco ANTES para cubrir cualquier borde lateral
+    //    (ajuste clave para eliminar el artefacto del lado izquierdo)
     setTimeout(() => {
-      console.log("🧹 [AUTH-CONTEXT] Limpiando localStorage");
+      setShowBlackout(true);
+    }, 3800); // <- antes 4000ms
+
+    // 3) Limpiar + navegar
+    setTimeout(() => {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       setAuth(null);
+      // Para que el landing haga fade-in al llegar
+      sessionStorage.setItem("revealLanding", "1");
+      router.replace("/");
+    }, 4300);
 
-      setTimeout(() => {
-        console.log("🚀 [AUTH-CONTEXT] Redirigiendo a /");
-        window.location.href = "/";
-      }, 500);
-    }, 3500);
-  }, []);
+    // 4) Ocultar overlays
+    setTimeout(() => {
+      setIsLoggingOut(false);
+    }, 4600);
+
+    setTimeout(() => {
+      setShowBlackout(false);
+    }, 5100);
+  }, [router]);
 
   return (
     <AuthContext.Provider
       value={{ auth, isLoading, isLoggingIn, isLoggingOut, login, logout }}
     >
       <AnimatePresence>
-        {/* Flujo de Login (Spinner -> Checkmark) */}
+        {/* Flujo Login */}
         {isLoggingIn && (
           <FullScreenLoader
             text="Iniciando Sesión..."
             isSuccess={loginSuccess}
-            // No pasamos successIconType, así que usará el default "check"
           />
         )}
 
-        {/* Flujo de Logout (Spinner -> Mano) */}
+        {/* Flujo Logout */}
         {isLoggingOut && (
           <FullScreenLoader
             text="Cerrando Sesión..."
             isSuccess={logoutSuccess}
             successTitle="¡Hasta pronto!"
             successText="Cierre de sesión exitoso"
-            successIconType="wave" // <-- CAMBIO: ¡Aquí está la magia!
+            successIconType="wave"
           />
         )}
       </AnimatePresence>
+
+      {/* Fundido a negro para cubrir transiciones */}
+      <Blackout show={showBlackout} />
 
       {isLoading ? <FullScreenLoader text="Verificando..." /> : children}
     </AuthContext.Provider>
@@ -171,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error("useAuth debe ser usado dentro de un AuthProvider");
   }
   return context;
@@ -181,27 +172,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { auth, isLoading } = useAuth();
   const router = useRouter();
 
-  console.log("🔍 [AUTH-GUARD-INTERNO] Verificando...", {
-    isLoading,
-    hasAuth: !!auth,
-    authEmail: auth?.user?.email,
-  });
-
   useEffect(() => {
     if (!isLoading && !auth) {
-      console.log("⚠️ [AUTH-GUARD-INTERNO] No hay auth, redirigiendo a /");
-      console.log("🚀 [AUTH-GUARD-INTERNO] Ejecutando router.push('/')");
       router.push("/");
     }
   }, [auth, isLoading, router]);
 
-  if (auth) {
-    console.log(
-      "✅ [AUTH-GUARD-INTERNO] Usuario autenticado, mostrando contenido"
-    );
-    return <>{children}</>;
-  }
-
-  console.log("⏳ [AUTH-GUARD-INTERNO] Esperando autenticación...");
+  if (auth) return <>{children}</>;
   return null;
 }

@@ -33,6 +33,24 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isHoveringCurve, setIsHoveringCurve] = useState(false);
 
+  // 👇 si venimos de logout, activar fade-in inicial del landing
+  const [shouldReveal, setShouldReveal] = useState(false);
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("revealLanding") === "1") {
+        setShouldReveal(true);
+        sessionStorage.removeItem("revealLanding");
+      }
+    } catch {}
+  }, []);
+  const landingRevealProps = shouldReveal
+    ? {
+        initial: { opacity: 0, scale: 0.98 },
+        animate: { opacity: 1, scale: 1 },
+        transition: { duration: 0.6, ease: "easeOut" },
+      }
+    : {};
+
   // Controles EXISTENTES (no tocar)
   const textControls = useAnimation();
   const animatedTextControls = useAnimation();
@@ -135,7 +153,10 @@ export default function LoginPage() {
   const word = "KantarEs";
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-black">
+    <motion.div
+      {...landingRevealProps}
+      className="min-h-screen relative overflow-hidden bg-black"
+    >
       {/* ====== FONDOS EXISTENTES (NO se tocan animaciones) ====== */}
       <AnimatePresence>
         {!showLogin && (
@@ -277,7 +298,7 @@ export default function LoginPage() {
       {/* ====== CONTENIDO ====== */}
       <AnimatePresence>
         {!showLogin ? (
-          // ================= WELCOME (DISEÑO NUEVO) =================
+          // ================= WELCOME =================
           <motion.div
             key="welcome"
             className="absolute inset-0 z-20 text-white"
@@ -300,13 +321,9 @@ export default function LoginPage() {
                 variants={itemVariants}
                 className="relative w-40 h-40 md:w-48 md:h-48 mb-8"
               >
-                {/* Halo exterior (el "glow") */}
                 <div className="absolute inset-0 rounded-full bg-red-600/50 blur-2xl" />
-                {/* Anillo de neón principal */}
                 <div className="absolute inset-0 rounded-full border-2 border-red-400" />
-                {/* Anillo de neón secundario (más sutil) */}
                 <div className="absolute -inset-2 rounded-full border border-red-500/30 blur-sm" />
-                {/* Imagen del logo (sin cambios) */}
                 <img
                   src="/kantares-logo.jpg"
                   alt="Kantares Logo"
@@ -314,7 +331,7 @@ export default function LoginPage() {
                 />
               </motion.div>
 
-              {/* Título con flip 3D + pulso (MISMAS animaciones) */}
+              {/* Título con flip 3D + pulso */}
               <motion.div
                 variants={itemVariants}
                 className="relative h-20 flex items-center justify-center"
@@ -366,7 +383,7 @@ export default function LoginPage() {
                 Sistema de administración y control
               </motion.p>
 
-              {/* CTA pill */}
+              {/* CTA */}
               <motion.div variants={itemVariants} className="mt-10">
                 <Button
                   onClick={handleAccessClick}
@@ -384,7 +401,7 @@ export default function LoginPage() {
             </motion.div>
           </motion.div>
         ) : (
-          // ================= LOGIN (SIN CAMBIOS) =================
+          // ================= LOGIN =================
           <div key="login" className="absolute inset-0">
             <motion.div
               className="absolute left-0 top-0 w-full lg:w-2/3 h-full flex items-center justify-center p-8 lg:p-16 z-30"
@@ -567,6 +584,6 @@ export default function LoginPage() {
           </div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }

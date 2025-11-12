@@ -29,6 +29,7 @@ import {
 @Controller('productos')
 @UseGuards(JwtAuthGuard)
 export class ProductosController {
+  cloudinaryService: any;
   constructor(private readonly productosService: ProductosService) {}
 
   @Post()
@@ -213,6 +214,25 @@ export class ProductosController {
       message: 'Producto desactivado exitosamente',
       data: producto,
     };
+  }
+
+  @Post('test-cloudinary')
+  @ApiOperation({ summary: 'Probar subida a Cloudinary' })
+  async testCloudinary(@Body() body: { imagen: string }) {
+    try {
+      const url = await this.cloudinaryService.uploadImage(body.imagen, 'test');
+      return {
+        success: true,
+        message: 'Imagen subida correctamente',
+        url: url,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Error al subir imagen',
+        error: error.message,
+      };
+    }
   }
 
   // === MEJORA 6: Endpoints para Recetas (BOM) ===

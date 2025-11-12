@@ -1,7 +1,15 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import {
+  LazyMotion,
+  domAnimation,
+  m,
+  motion,
+  AnimatePresence,
+  useReducedMotion,
+} from "framer-motion";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,7 +40,7 @@ import { AnimatedCounter } from "@/components/dashboard/AnimatedCounter";
 import { ModuleCard } from "@/components/dashboard/ModuleCard";
 import { useAuth } from "@/contexts/AuthContext";
 
-/* =======================  Animaciones bases  ======================= */
+/* =======================  Animaciones bases (tus anteriores)  ======================= */
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -277,10 +285,14 @@ export default function DashboardPage() {
 
   const handleModuleClick = useCallback(
     (module: ModuleType) => {
-      // Muestra loader
       setLoadingModule(module);
-      // Da un respiro al overlay y navega. La cortina global vive en el layout.
-      setTimeout(() => router.push(module.href), 300);
+      // Navegación suave: usa requestIdleCallback si existe; de lo contrario, timeout corto
+      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+        // @ts-ignore
+        window.requestIdleCallback(() => router.push(module.href));
+      } else {
+        setTimeout(() => router.push(module.href), 350);
+      }
     },
     [router]
   );
@@ -289,283 +301,294 @@ export default function DashboardPage() {
     useDashboardState(debouncedSearchTerm);
 
   return (
-    <motion.div
-      className="space-y-8"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      {/* Header */}
-      <motion.div
-        variants={itemVariants}
-        className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
+    <LazyMotion features={domAnimation}>
+      <m.div
+        className="space-y-8 will-change-transform will-change-opacity transform-gpu"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
       >
-        <div>
-          <h1 className="text-3xl font-extrabold text-gray-800 mb-1">
-            Bienvenido, {auth?.user?.nombre || "Usuario"} 👋
-          </h1>
-          <div className="flex items-center gap-4 text-gray-500">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              <span className="text-sm capitalize">{currentDate}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              <span className="text-sm font-mono">{currentTime}</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Buscar módulo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-80 bg-white/90 backdrop-blur-sm border-gray-200 focus:ring-2 focus:ring-offset-2 focus:ring-[#ff3b6b]/30"
-            />
-          </div>
-          <NotificationsPanel>
-            <Button
-              variant="outline"
-              size="icon"
-              className="relative bg-transparent hover:bg-[#ff3b6b]/10 border-[#ff3b6b]/20"
-            >
-              <Bell className="h-4 w-4 text-[#ff3b6b]" />
-              <span className="absolute -top-1 -right-1 h-3 w-3 bg-[#ff3b6b] rounded-full animate-ping" />
-            </Button>
-          </NotificationsPanel>
-        </div>
-      </motion.div>
-
-      {/* Hero/banner responsive */}
-      <motion.div
-        variants={itemVariants}
-        className="relative aspect-[16/5] w-full rounded-3xl overflow-hidden shadow-2xl"
-      >
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: 'url("/kantares-logo.jpg")' }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-black/30" />
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-red-600 via-red-500 to-red-600" />
-      </motion.div>
-
-      {/* Métricas */}
-      <motion.div
-        variants={itemVariants}
-        className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"
-      >
-        {metricsData.map((m) => (
-          <Card
-            key={m.title}
-            className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl"
-            style={{
-              background: `linear-gradient(145deg, ${
-                COLOR_TOKENS[m.tokenKey].hexFrom
-              }40, ${COLOR_TOKENS[m.tokenKey].hexTo}60)`,
-            }}
-          >
-            <div className="p-5 relative z-10">
-              <div className="relative flex items-start justify-between">
-                <div>
-                  <p
-                    className="text-sm font-medium text-white"
-                    style={{ textShadow: "0 1px 3px rgba(0,0,0,0.4)" }}
-                  >
-                    {m.title}
-                  </p>
-                  <h3
-                    className="text-4xl font-extrabold text-white mt-1 h-10"
-                    style={{ textShadow: "0 2px 5px rgba(0,0,0,0.5)" }}
-                  >
-                    <AnimatedCounter
-                      to={m.rawValue}
-                      isCurrency={m.isCurrency}
-                    />
-                  </h3>
-                  <p
-                    className={`mt-2 text-sm font-bold ${
-                      m.changeType === "positive"
-                        ? "text-green-300"
-                        : "text-red-300"
-                    }`}
-                    style={{ textShadow: "0 1px 3px rgba(0,0,0,0.5)" }}
-                  >
-                    {m.change}
-                  </p>
-                </div>
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                  style={{
-                    background: `linear-gradient(135deg, ${
-                      COLOR_TOKENS[m.tokenKey].hexFrom
-                    }, ${COLOR_TOKENS[m.tokenKey].hexTo})`,
-                    boxShadow: `0 8px 25px -5px ${
-                      COLOR_TOKENS[m.tokenKey].hexTo
-                    }80, 0 4px 6px -4px ${COLOR_TOKENS[m.tokenKey].hexTo}80`,
-                  }}
-                >
-                  <m.icon className="w-7 h-7" style={{ color: "#FFFFFF" }} />
-                </div>
+        {/* Header */}
+        <m.div
+          variants={itemVariants}
+          className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
+        >
+          <div>
+            <h1 className="text-3xl font-extrabold text-gray-800 mb-1">
+              Bienvenido, {auth?.user?.nombre || "Usuario"} 👋
+            </h1>
+            <div className="flex items-center gap-4 text-gray-500">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <span className="text-sm capitalize">{currentDate}</span>
               </div>
-              <div className="mt-4 h-2 rounded-full bg-white/10 overflow-hidden">
-                <motion.div
-                  className="h-2 rounded-full"
-                  style={{
-                    background: `linear-gradient(90deg, ${
-                      COLOR_TOKENS[m.tokenKey].hexFrom
-                    }, ${COLOR_TOKENS[m.tokenKey].hexTo})`,
-                  }}
-                  initial={{ width: "0%" }}
-                  animate={{ width: `${m.progress}%` }}
-                  transition={{ duration: 1.5, ease: "easeOut", delay: 0.5 }}
-                />
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                <span className="text-sm font-mono">{currentTime}</span>
               </div>
             </div>
-          </Card>
-        ))}
-      </motion.div>
-
-      {/* Módulos */}
-      {filteredModulesSections.map((section) => (
-        <motion.div key={section.title} variants={itemVariants}>
-          <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-            {section.title}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-10">
-            {section.modules.map((module) => (
-              <ModuleCard
-                key={module.key}
-                module={module}
-                token={COLOR_TOKENS[module.tokenKey]}
-                onActivate={handleModuleClick}
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Buscar módulo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-80 bg-white/90 backdrop-blur-sm border-gray-200 focus:ring-2 focus:ring-offset-2 focus:ring-[#ff3b6b]/30"
               />
-            ))}
-          </div>
-        </motion.div>
-      ))}
-
-      {/* Sin resultados */}
-      <AnimatePresence>
-        {filteredModulesSections.length === 0 && searchTerm && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="text-center py-10"
-          >
-            <p className="text-gray-600 font-medium">
-              No se encontraron módulos para "{searchTerm}"
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Listas inferiores */}
-      <motion.div
-        variants={itemVariants}
-        className="grid grid-cols-1 xl:grid-cols-2 gap-6"
-      >
-        <Card className="rounded-2xl shadow-2xl bg-white/60 backdrop-blur-xl border border-white/20">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-semibold">
-                Órdenes Recientes
-              </CardTitle>
-              <Button variant="ghost" size="sm">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {recentOrders.map((o, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-3 rounded-lg hover:bg-black/5 transition-colors"
+            <NotificationsPanel>
+              <Button
+                variant="outline"
+                size="icon"
+                className="relative bg-transparent hover:bg-[#ff3b6b]/10 border-[#ff3b6b]/20"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <Utensils className="h-5 w-5 text-gray-600" />
-                  </div>
+                <Bell className="h-4 w-4 text-[#ff3b6b]" />
+                <span className="absolute -top-1 -right-1 h-3 w-3 bg-[#ff3b6b] rounded-full animate-ping" />
+              </Button>
+            </NotificationsPanel>
+          </div>
+        </m.div>
+
+        {/* Hero/banner responsive con <Image priority> */}
+        <m.div
+          variants={itemVariants}
+          className="relative aspect-[16/5] w-full rounded-3xl overflow-hidden shadow-2xl"
+        >
+          <Image
+            src="/kantares-logo.jpg"
+            alt="KantarEs"
+            fill
+            priority
+            sizes="(max-width: 1280px) 100vw, 1280px"
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-black/30" />
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-red-600 via-red-500 to-red-600" />
+        </m.div>
+
+        {/* Métricas */}
+        <m.div
+          variants={itemVariants}
+          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"
+        >
+          {metricsData.map((mstat) => (
+            <Card
+              key={mstat.title}
+              className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl"
+              style={{
+                background: `linear-gradient(145deg, ${
+                  COLOR_TOKENS[mstat.tokenKey].hexFrom
+                }40, ${COLOR_TOKENS[mstat.tokenKey].hexTo}60)`,
+              }}
+            >
+              <div className="p-5 relative z-10">
+                <div className="relative flex items-start justify-between">
                   <div>
-                    <p className="font-medium text-gray-900">{o.mesa}</p>
-                    <p className="text-sm text-gray-500">
-                      {o.items} • {o.tiempo}
+                    <p
+                      className="text-sm font-medium text-white"
+                      style={{ textShadow: "0 1px 3px rgba(0,0,0,0.4)" }}
+                    >
+                      {mstat.title}
+                    </p>
+                    <h3
+                      className="text-4xl font-extrabold text-white mt-1 h-10"
+                      style={{ textShadow: "0 2px 5px rgba(0,0,0,0.5)" }}
+                    >
+                      <AnimatedCounter
+                        to={mstat.rawValue}
+                        isCurrency={mstat.isCurrency}
+                      />
+                    </h3>
+                    <p
+                      className={`mt-2 text-sm font-bold ${
+                        mstat.changeType === "positive"
+                          ? "text-green-300"
+                          : "text-red-300"
+                      }`}
+                      style={{ textShadow: "0 1px 3px rgba(0,0,0,0.5)" }}
+                    >
+                      {mstat.change}
                     </p>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-900">{o.total}</p>
-                  <Badge
-                    variant={
-                      o.estado === "listo"
-                        ? "default"
-                        : o.estado === "preparando"
-                        ? "secondary"
-                        : "outline"
-                    }
-                    className="text-xs"
-                  >
-                    {o.estado}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl shadow-2xl bg-white/60 backdrop-blur-xl border border-white/20">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-semibold">
-                Productos Populares
-              </CardTitle>
-              <Button variant="ghost" size="sm">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {popularProducts.map((p, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-3 rounded-lg hover:bg黑/5 transition-colors"
-              >
-                <div className="flex items-center gap-3">
                   <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center"
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center"
                     style={{
-                      background: `linear-gradient(135deg, #ff7aa2, #ff3b6b)`,
+                      background: `linear-gradient(135deg, ${
+                        COLOR_TOKENS[mstat.tokenKey].hexFrom
+                      }, ${COLOR_TOKENS[mstat.tokenKey].hexTo})`,
+                      boxShadow: `0 8px 25px -5px ${
+                        COLOR_TOKENS[mstat.tokenKey].hexTo
+                      }80, 0 4px 6px -4px ${
+                        COLOR_TOKENS[mstat.tokenKey].hexTo
+                      }80`,
                     }}
                   >
-                    <span className="text-white font-bold text-sm">
-                      {i + 1}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">{p.nombre}</p>
-                    <p className="text-sm text-gray-500">
-                      {p.vendidos} vendidos
-                    </p>
+                    <mstat.icon
+                      className="w-7 h-7"
+                      style={{ color: "#FFFFFF" }}
+                    />
                   </div>
                 </div>
-                <p className="font-semibold text-gray-900">{p.ingresos}</p>
+                <div className="mt-4 h-2 rounded-full bg-white/10 overflow-hidden">
+                  <motion.div
+                    className="h-2 rounded-full"
+                    style={{
+                      background: `linear-gradient(90deg, ${
+                        COLOR_TOKENS[mstat.tokenKey].hexFrom
+                      }, ${COLOR_TOKENS[mstat.tokenKey].hexTo})`,
+                    }}
+                    initial={{ width: "0%" }}
+                    animate={{ width: `${mstat.progress}%` }}
+                    transition={{ duration: 1.5, ease: "easeOut", delay: 0.5 }}
+                  />
+                </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      </motion.div>
+            </Card>
+          ))}
+        </m.div>
 
-      {/* Overlay de carga por módulo */}
-      <AnimatePresence>
-        {loadingModule && (
-          <ModuleLoadingOverlay
-            module={loadingModule}
-            onCancel={() => setLoadingModule(null)}
-          />
-        )}
-      </AnimatePresence>
-    </motion.div>
+        {/* Módulos */}
+        {filteredModulesSections.map((section) => (
+          <m.div key={section.title} variants={itemVariants}>
+            <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+              {section.title}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-10">
+              {section.modules.map((module) => (
+                <ModuleCard
+                  key={module.key}
+                  module={module}
+                  token={COLOR_TOKENS[module.tokenKey]}
+                  onActivate={handleModuleClick}
+                />
+              ))}
+            </div>
+          </m.div>
+        ))}
+
+        {/* Sin resultados */}
+        <AnimatePresence>
+          {filteredModulesSections.length === 0 && searchTerm && (
+            <m.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="text-center py-10"
+            >
+              <p className="text-gray-600 font-medium">
+                No se encontraron módulos para "{searchTerm}"
+              </p>
+            </m.div>
+          )}
+        </AnimatePresence>
+
+        {/* Listas inferiores (lazy paint) */}
+        <m.div
+          variants={itemVariants}
+          className="grid grid-cols-1 xl:grid-cols-2 gap-6 [content-visibility:auto] [contain-intrinsic-size:1px_800px]"
+        >
+          <Card className="rounded-2xl shadow-2xl bg-white/60 backdrop-blur-xl border border-white/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-semibold">
+                  Órdenes Recientes
+                </CardTitle>
+                <Button variant="ghost" size="sm">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {recentOrders.map((o, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between p-3 rounded-lg hover:bg-black/5 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <Utensils className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{o.mesa}</p>
+                      <p className="text-sm text-gray-500">
+                        {o.items} • {o.tiempo}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-gray-900">{o.total}</p>
+                    <Badge
+                      variant={
+                        o.estado === "listo"
+                          ? "default"
+                          : o.estado === "preparando"
+                          ? "secondary"
+                          : "outline"
+                      }
+                      className="text-xs"
+                    >
+                      {o.estado}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl shadow-2xl bg-white/60 backdrop-blur-xl border border-white/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-semibold">
+                  Productos Populares
+                </CardTitle>
+                <Button variant="ghost" size="sm">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {popularProducts.map((p, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between p-3 rounded-lg hover:bg-black/5 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center"
+                      style={{
+                        background: `linear-gradient(135deg, #ff7aa2, #ff3b6b)`,
+                      }}
+                    >
+                      <span className="text-white font-bold text-sm">
+                        {i + 1}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{p.nombre}</p>
+                      <p className="text-sm text-gray-500">
+                        {p.vendidos} vendidos
+                      </p>
+                    </div>
+                  </div>
+                  <p className="font-semibold text-gray-900">{p.ingresos}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </m.div>
+
+        {/* Overlay de carga por módulo */}
+        <AnimatePresence>
+          {loadingModule && (
+            <ModuleLoadingOverlay
+              module={loadingModule}
+              onCancel={() => setLoadingModule(null)}
+            />
+          )}
+        </AnimatePresence>
+      </m.div>
+    </LazyMotion>
   );
 }

@@ -1,63 +1,32 @@
-// FRONTEND/hooks/useAuth.tsx
-// VERSION CON LOGS DE DIAGNÓSTICO
-import { useEffect, useState } from "react";
+"use client";
+
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth as useAuthContext } from "@/contexts/AuthContext";
 
+/**
+ * Hook de conveniencia sobre el AuthContext
+ * - Si requireAuth=true (default) y NO hay sesión, redirige a "/"
+ * - Expone { user, token, loading } sin tocar localStorage directamente
+ */
 export function useAuth(requireAuth: boolean = true) {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const {
+    auth, // { token, user } | null
+    isLoading, // chequeo inicial de sesión
+  } = useAuthContext();
 
+  // Redirección si se requiere auth y no hay sesión (cuando termine el chequeo)
   useEffect(() => {
-    console.log("🔍 [USE-AUTH] Hook iniciado, requireAuth:", requireAuth);
+    if (!isLoading && requireAuth && !auth) {
+      router.push("/");
+    }
+  }, [auth, isLoading, requireAuth, router]);
 
-    const checkAuth = () => {
-      const token = localStorage.getItem("token");
-      const userStr = localStorage.getItem("user");
-
-      console.log("🔐 [USE-AUTH] Verificando localStorage:", {
-        hasToken: !!token,
-        hasUser: !!userStr,
-        requireAuth,
-      });
-
-      // Si requiere auth y no hay token, redirigir a la raíz (/)
-      if (requireAuth && !token) {
-        console.log("⚠️ [USE-AUTH] No hay token y se requiere auth");
-        console.log("🚀 [USE-AUTH] Redirigiendo a /");
-        router.push("/");
-        return;
-      }
-
-      if (userStr) {
-        try {
-          const parsedUser = JSON.parse(userStr);
-          console.log(
-            "✅ [USE-AUTH] Usuario parseado correctamente:",
-            parsedUser.email
-          );
-          setUser(parsedUser);
-        } catch (error) {
-          console.error(
-            "❌ [USE-AUTH] Error al parsear datos de usuario:",
-            error
-          );
-          // Si hay error al parsear, limpiar localStorage y redirigir
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          console.log("🧹 [USE-AUTH] localStorage limpiado");
-          console.log("🚀 [USE-AUTH] Redirigiendo a /");
-          router.push("/");
-          return;
-        }
-      }
-
-      console.log("✅ [USE-AUTH] Verificación completada");
-      setLoading(false);
-    };
-
-    checkAuth();
-  }, [requireAuth, router]);
-
-  return { user, loading };
+  return {
+    user: auth?.user ?? null,
+    token: auth?.token ?? null,
+    loading: isLoading,
+    isAuthenticated: !!auth,
+  };
 }

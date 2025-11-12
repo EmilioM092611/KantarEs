@@ -1,82 +1,74 @@
-// FRONTEND/components/auth-guard.tsx
-// VERSION CON LOGS DE DIAGNÓSTICO
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { PageLoader } from "@/components/page-loader";
+import { useAuth } from "@/hooks/useAuth"; // el nuevo hook de arriba
+import { PageLoader } from "@/components/page-loader"; // si no lo tienes, cámbialo por tu loader
 
 interface AuthGuardProps {
   children: React.ReactNode;
+  /**
+   * Rutas públicas (además de "/", "/register", "/forgot-password" por defecto).
+   * Puedes sobreescribirlas pasando un array aquí si lo necesitas.
+   */
+  publicRoutes?: string[];
 }
 
-export function AuthGuard({ children }: AuthGuardProps) {
+export function AuthGuard({ children, publicRoutes }: AuthGuardProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [isChecking, setIsChecking] = useState(true);
+  const { isAuthenticated, loading, token } = useAuth(false); // no forzamos redirect aquí, lo hacemos nosotros
+  const [checking, setChecking] = useState(true);
 
-  // ✅ Rutas públicas - SIN /login
-  const publicRoutes = ["/", "/register", "/forgot-password"];
+  // Rutas públicas por defecto + extendidas
+  const allowedPublic = useMemo(
+    () =>
+      new Set(["/", "/register", "/forgot-password", ...(publicRoutes ?? [])]),
+    [publicRoutes]
+  );
 
   useEffect(() => {
-    console.log("🔍 [AUTH-GUARD] Iniciando verificación...");
-    console.log("📍 [AUTH-GUARD] Pathname actual:", pathname);
-    console.log("🔓 [AUTH-GUARD] Rutas públicas:", publicRoutes);
+    let cancelled = false;
 
-    const checkAuth = async () => {
-      // Si es una ruta pública, no verificar autenticación
-      if (publicRoutes.includes(pathname)) {
-        console.log(
-          "✅ [AUTH-GUARD] Ruta pública detectada, permitiendo acceso"
-        );
-        setIsChecking(false);
+    const run = async () => {
+      // Si es ruta pública, no hay chequeos de auth
+      if (allowedPublic.has(pathname)) {
+        setChecking(false);
         return;
       }
 
-      // Pequeño delay para asegurar que el localStorage esté disponible
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Aseguramos que terminó el chequeo de sesión inicial
+      if (loading) {
+        setChecking(true);
+        return;
+      }
 
-      const token = localStorage.getItem("token");
-
-      console.log("🔐 [AUTH-GUARD] Verificando autenticación:", {
-        pathname,
-        hasToken: !!token,
-        token: token ? `${token.substring(0, 20)}...` : null,
-      });
-
-      // Si no hay token y no es una ruta pública, redirigir a la raíz (/)
-      if (!token && !publicRoutes.includes(pathname)) {
-        console.log("⚠️ [AUTH-GUARD] No autenticado, redirigiendo a /");
-        console.log("🚀 [AUTH-GUARD] Ejecutando router.push('/')");
+      // Si no hay token/sesión en una ruta protegida → a "/"
+      if (!isAuthenticated || !token) {
         router.push("/");
         return;
       }
 
-      // Si hay token y está en la raíz, redirigir a dashboard
+      // Si hay token y estamos en raíz, llévalo al dashboard
       if (token && pathname === "/") {
-        console.log(
-          "✅ [AUTH-GUARD] Usuario autenticado en /, redirigiendo a /dashboard"
-        );
-        console.log("🚀 [AUTH-GUARD] Ejecutando router.push('/dashboard')");
         router.push("/dashboard");
         return;
       }
 
-      console.log(
-        "✅ [AUTH-GUARD] Verificación completada, mostrando contenido"
-      );
-      setIsChecking(false);
+      // Listo para mostrar children
+      if (!cancelled) setChecking(false);
     };
 
-    checkAuth();
-  }, [pathname, router]);
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [allowedPublic, isAuthenticated, loading, pathname, router, token]);
 
-  // Mientras verifica, mostrar loader solo si NO es una ruta pública
-  if (isChecking && !publicRoutes.includes(pathname)) {
-    console.log("⏳ [AUTH-GUARD] Mostrando loader de verificación");
+  // Mientras verificamos una ruta protegida, muestra un loader
+  if (checking && !allowedPublic.has(pathname)) {
     return <PageLoader text="Verificando sesión..." />;
   }
 
-  console.log("✅ [AUTH-GUARD] Renderizando children");
   return <>{children}</>;
 }

@@ -171,7 +171,7 @@ export function useProfile(): UseProfileReturn {
       toast({
         title: "Error",
         description: err.message || "No se pudo actualizar el perfil",
-        variant: "destructive",
+        variant: "error",
       });
       throw err;
     }

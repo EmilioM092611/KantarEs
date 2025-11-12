@@ -17,12 +17,12 @@ export function AnimatedCounter({
   const nodeRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
+    if (!nodeRef.current) return;
+
     const node = nodeRef.current;
-    if (!node) return;
 
     const controls = animate(0, to, {
-      duration: 1.5,
-      ease: "easeOut",
+      duration: 1.0, // antes 1.5 -> más ágil
       onUpdate(value) {
         if (isCurrency) {
           node.textContent = new Intl.NumberFormat("es-MX", {

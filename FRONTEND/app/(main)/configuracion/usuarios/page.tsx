@@ -117,7 +117,7 @@ export default function UsuariosPage() {
       toast({
         title: "Error cargando datos",
         description: error,
-        variant: "destructive",
+        variant: "error",
       });
     }
   }, [error, toast]);
@@ -145,7 +145,7 @@ export default function UsuariosPage() {
         toast({
           title: "Usuario desactivado",
           description: `${user.name} ya no puede acceder al sistema`,
-          variant: "destructive",
+          variant: "error",
         });
       } else {
         await activarUsuario(user.id);
@@ -170,7 +170,7 @@ export default function UsuariosPage() {
         title: "Error",
         description:
           error.message || "No se pudo cambiar el estado del usuario",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setProcessingUser(null);
@@ -255,7 +255,7 @@ export default function UsuariosPage() {
             title: "Contraseña requerida",
             description:
               "Por favor ingresa una contraseña para el nuevo usuario",
-            variant: "destructive",
+            variant: "error",
           });
           return;
         }
@@ -264,7 +264,7 @@ export default function UsuariosPage() {
           toast({
             title: "Las contraseñas no coinciden",
             description: "Verifica que ambas contraseñas sean idénticas",
-            variant: "destructive",
+            variant: "error",
           });
           return;
         }
@@ -304,13 +304,13 @@ export default function UsuariosPage() {
         toast({
           title: "Usuario duplicado",
           description: "Ya existe un usuario con ese email o nombre de usuario",
-          variant: "destructive",
+          variant: "error",
         });
       } else {
         toast({
           title: "Error al guardar",
           description: error.message || "No se pudo guardar el usuario",
-          variant: "destructive",
+          variant: "error",
         });
       }
     }
@@ -332,7 +332,7 @@ export default function UsuariosPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900">
-              Gestión de Usuarios
+              Gestión de usuarios
             </h1>
             <p className="text-gray-600 mt-2">
               Administra perfiles y permisos de usuarios del sistema

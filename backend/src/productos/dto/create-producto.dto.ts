@@ -63,7 +63,6 @@ export class CreateProductoDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(500)
   imagen_url?: string;
 
   @IsOptional()

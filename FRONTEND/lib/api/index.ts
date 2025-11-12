@@ -4,7 +4,8 @@
 export * from "./client";
 export * from "./auth";
 export * from "./usuarios";
-export * from "./ordenes";
-export * from "./productos";
 export * from "./configuracion";
+export * from "./productos";
+export * from "./categorias";
+export * from "./unidades-medida";
 // Agrega más exports según vayas creando servicios

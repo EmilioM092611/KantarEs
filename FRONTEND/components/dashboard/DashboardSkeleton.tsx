@@ -1,47 +1,57 @@
 // components/dashboard/DashboardSkeleton.tsx
+"use client";
 
+import React from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
-// Una función de utilidad para crear un bloque gris animado.
-const SkeletonBlock = ({ className }: { className?: string }) => (
-  <div className={`bg-gray-200 animate-pulse rounded-md ${className}`} />
-);
-
-export const DashboardSkeleton = () => {
+export function DashboardSkeleton() {
   return (
     <div className="space-y-8">
-      {/* Skeleton para el Header */}
+      {/* Header skeleton */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <SkeletonBlock className="h-9 w-64 mb-2" />
-          <SkeletonBlock className="h-5 w-80" />
+        <div className="space-y-2">
+          <div className="h-6 w-48 bg-gray-200 rounded animate-pulse" />
+          <div className="h-4 w-64 bg-gray-200 rounded animate-pulse" />
         </div>
-        <div className="flex items-center gap-3">
-          <SkeletonBlock className="h-10 w-80" />
-          <SkeletonBlock className="h-10 w-10 rounded-full" />
-        </div>
+        <div className="h-10 w-64 bg-gray-200 rounded animate-pulse" />
       </div>
 
-      {/* Skeleton para el Banner */}
-      <SkeletonBlock className="h-96 rounded-2xl" />
+      {/* Banner */}
+      <div className="relative aspect-[16/5] w-full rounded-3xl overflow-hidden shadow-2xl bg-gray-100 animate-pulse" />
 
-      {/* Skeleton para las Métricas */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <SkeletonBlock className="h-40 rounded-2xl" />
-        <SkeletonBlock className="h-40 rounded-2xl" />
-        <SkeletonBlock className="h-40 rounded-2xl" />
-        <SkeletonBlock className="h-40 rounded-2xl" />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="rounded-2xl shadow-2xl">
+            <CardHeader className="pb-3">
+              <div className="h-5 w-32 bg-gray-200 rounded animate-pulse" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
+              <div className="h-2 w-full bg-gray-200 rounded animate-pulse" />
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Skeleton para una sección de módulos */}
-      <div>
-        <SkeletonBlock className="h-8 w-48 mb-6" />
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          <SkeletonBlock className="h-48 rounded-2xl" />
-          <SkeletonBlock className="h-48 rounded-2xl" />
-          <SkeletonBlock className="h-48 rounded-2xl" />
-        </div>
+      {/* Lists */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <Card key={i} className="rounded-2xl shadow-2xl">
+            <CardHeader className="pb-3">
+              <div className="h-5 w-40 bg-gray-200 rounded animate-pulse" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {Array.from({ length: 5 }).map((_, j) => (
+                <div
+                  key={j}
+                  className="h-10 w-full bg-gray-100 rounded animate-pulse"
+                />
+              ))}
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   );
-};
+}

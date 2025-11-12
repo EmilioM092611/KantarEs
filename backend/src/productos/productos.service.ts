@@ -5,6 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreateProductoDto } from './dto/create-producto.dto';
 import { UpdateProductoDto } from './dto/update-producto.dto';
 import { QueryProductosDto } from './dto/query-productos.dto';
@@ -12,12 +13,15 @@ import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ProductosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   async create(createProductoDto: CreateProductoDto) {
     // Verificar SKU único
     const existingProduct = await this.prisma.productos.findUnique({
-      where: { sku: createProductoDto.codigo }, // Mapear codigo a sku
+      where: { sku: createProductoDto.codigo },
     });
 
     if (existingProduct) {
@@ -28,7 +32,7 @@ export class ProductosService {
 
     // Verificar que la categoría existe
     const categoria = await this.prisma.categorias.findUnique({
-      where: { id_categoria: createProductoDto.id_tipo_producto }, // Usar id_categoria
+      where: { id_categoria: createProductoDto.id_tipo_producto },
     });
 
     if (!categoria) {
@@ -55,13 +59,42 @@ export class ProductosService {
       );
     }
 
+    // 🖼️ SUBIR IMAGEN A CLOUDINARY SI EXISTE
+    let imagenUrl = createProductoDto.imagen_url;
+
+    // 🔍 DEBUG
+    console.log('=== DEBUG IMAGEN ===');
+    console.log(
+      'imagen_url recibida:',
+      imagenUrl ? imagenUrl.substring(0, 50) + '...' : 'null',
+    );
+    console.log('¿Es base64?:', imagenUrl?.startsWith('data:image'));
+
+    if (imagenUrl && imagenUrl.startsWith('data:image')) {
+      try {
+        console.log('🚀 Intentando subir a Cloudinary...');
+        imagenUrl = await this.cloudinaryService.uploadImage(
+          imagenUrl,
+          'productos',
+        );
+        console.log('✅ Imagen subida exitosamente:', imagenUrl);
+      } catch (error) {
+        console.error('❌ Error al subir imagen a Cloudinary:', error);
+        console.error('Error completo:', JSON.stringify(error, null, 2));
+        imagenUrl = undefined;
+      }
+    }
+
+    console.log('imagen_url final:', imagenUrl);
+    console.log('=== FIN DEBUG ===');
+
     // Crear el producto
     const producto = await this.prisma.productos.create({
       data: {
-        sku: createProductoDto.codigo, // Mapear codigo a sku
+        sku: createProductoDto.codigo,
         nombre: createProductoDto.nombre,
         descripcion: createProductoDto.descripcion,
-        id_categoria: createProductoDto.id_tipo_producto, // Mapear id_tipo_producto a id_categoria
+        id_categoria: createProductoDto.id_tipo_producto,
         id_unidad_medida: createProductoDto.id_unidad_medida,
         precio_venta: new Prisma.Decimal(createProductoDto.precio_venta),
         costo_promedio: createProductoDto.costo
@@ -74,7 +107,7 @@ export class ProductosService {
         es_vendible: createProductoDto.disponible_venta ?? true,
         tiempo_preparacion_min: createProductoDto.tiempo_preparacion_min,
         calorias: createProductoDto.calorias,
-        imagen_url: createProductoDto.imagen_url,
+        imagen_url: imagenUrl,
         alergenos: createProductoDto.alergenos?.join(','),
       },
       include: {
@@ -121,15 +154,15 @@ export class ProductosService {
       ...(search && {
         OR: [
           { nombre: { contains: search, mode: 'insensitive' } },
-          { sku: { contains: search, mode: 'insensitive' } }, // Usar sku en vez de codigo
+          { sku: { contains: search, mode: 'insensitive' } },
           { descripcion: { contains: search, mode: 'insensitive' } },
         ],
       }),
-      ...(categoria && { id_categoria: categoria }), // Usar id_categoria
-      ...(disponible !== undefined && { disponible }), // Usar disponible
+      ...(categoria && { id_categoria: categoria }),
+      ...(disponible !== undefined && { disponible }),
       ...(activo !== undefined && {
         deleted_at: activo ? null : { not: null },
-      }), // Usar deleted_at para soft delete
+      }),
     };
 
     // Mapear ordenarPor al campo correcto de la DB
@@ -137,7 +170,7 @@ export class ProductosService {
       nombre: 'nombre',
       precio: 'precio_venta',
       codigo: 'sku',
-      stock: 'nombre', // No hay stock_actual directo en productos, usar nombre
+      stock: 'nombre',
       createdAt: 'created_at',
     };
 
@@ -154,7 +187,7 @@ export class ProductosService {
         include: {
           categorias: true,
           unidades_medida: true,
-          inventario: true, // Incluir inventario para obtener stock
+          inventario: true,
         },
       }),
       this.prisma.productos.count({ where }),
@@ -234,7 +267,7 @@ export class ProductosService {
 
   async update(id: number, updateProductoDto: UpdateProductoDto) {
     // Verificar que el producto existe
-    await this.findOne(id);
+    const productoExistente = await this.findOne(id);
 
     // Si se está actualizando el código (sku), verificar que sea único
     if (updateProductoDto.codigo) {
@@ -274,6 +307,34 @@ export class ProductosService {
       }
     }
 
+    // 🖼️ ACTUALIZAR IMAGEN EN CLOUDINARY SI EXISTE
+    let imagenUrl = updateProductoDto.imagen_url;
+    if (imagenUrl !== undefined) {
+      if (imagenUrl && imagenUrl.startsWith('data:image')) {
+        try {
+          // Subir nueva imagen y eliminar la anterior
+          imagenUrl = await this.cloudinaryService.updateImage(
+            productoExistente.imagen_url,
+            imagenUrl,
+            'productos',
+          );
+        } catch (error) {
+          console.error('Error al actualizar imagen en Cloudinary:', error);
+          // Mantener la imagen anterior en caso de error
+          imagenUrl = productoExistente.imagen_url || undefined;
+        }
+      } else if (imagenUrl === null && productoExistente.imagen_url) {
+        // Si se está eliminando la imagen (null), eliminarla de Cloudinary
+        try {
+          await this.cloudinaryService.deleteImage(
+            productoExistente.imagen_url,
+          );
+        } catch (error) {
+          console.error('Error al eliminar imagen de Cloudinary:', error);
+        }
+      }
+    }
+
     // Preparar datos para actualización
     const updateData: any = {};
 
@@ -305,8 +366,7 @@ export class ProductosService {
         updateProductoDto.tiempo_preparacion_min;
     if (updateProductoDto.calorias !== undefined)
       updateData.calorias = updateProductoDto.calorias;
-    if (updateProductoDto.imagen_url !== undefined)
-      updateData.imagen_url = updateProductoDto.imagen_url;
+    if (imagenUrl !== undefined) updateData.imagen_url = imagenUrl;
     if (updateProductoDto.alergenos !== undefined)
       updateData.alergenos = updateProductoDto.alergenos.join(',');
 
@@ -366,7 +426,7 @@ export class ProductosService {
 
   async remove(id: number) {
     // Verificar que el producto existe
-    await this.findOne(id);
+    const producto = await this.findOne(id);
 
     // Verificar si el producto tiene movimientos de inventario o está en órdenes
     const [movimientos, ordenes] = await Promise.all([
@@ -377,6 +437,16 @@ export class ProductosService {
         where: { id_producto: id },
       }),
     ]);
+
+    // 🖼️ ELIMINAR IMAGEN DE CLOUDINARY
+    if (producto.imagen_url) {
+      try {
+        await this.cloudinaryService.deleteImage(producto.imagen_url);
+      } catch (error) {
+        console.error('Error al eliminar imagen de Cloudinary:', error);
+        // Continuar con la eliminación del producto aunque falle la imagen
+      }
+    }
 
     if (movimientos > 0 || ordenes > 0) {
       // Si tiene historial, solo hacer soft delete

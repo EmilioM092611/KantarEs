@@ -117,7 +117,7 @@ export class KdsController {
   obtenerItem(@Param('id', ParseIntPipe) id: number) {
     return this.kdsService.obtenerItemPorId(id);
   }
-
+  /*
   @Patch('items/:id/estado')
   @Roles('Administrador', 'Gerente', 'Cocinero', 'Barista')
   @ApiOperation({ summary: 'Cambiar estado de un item' })
@@ -126,7 +126,7 @@ export class KdsController {
     @Body() dto: CambiarEstadoItemDto,
   ) {
     return this.kdsService.cambiarEstadoItem(id, dto);
-  }
+  }*/
 
   @Patch('items/:id/prioridad')
   @Roles('Administrador', 'Gerente', 'Cocinero', 'Barista')

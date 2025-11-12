@@ -22,7 +22,7 @@ export const SistemaHeader = ({
     <div className="flex items-center justify-between">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">
-          Configuración del Sistema
+          Configuración del sistema
         </h1>
         <p className="text-gray-600 mt-1">
           Administra la configuración general del restaurante

@@ -75,6 +75,7 @@
     "cacheable": "2.1.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "cloudinary": "^2.8.0",
     "commander": "^14.0.1",
     "date-fns": "^4.1.0",
     "exceljs": "^4.4.0",
